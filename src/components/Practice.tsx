@@ -76,9 +76,11 @@ export function Practice() {
   const [decFeedback, setDecFeedback] = useState<FeedbackState>(null)
   const answerRef = useRef<HTMLInputElement>(null)
 
+  // Autofocus whenever the question changes OR the panel mounts (mode switch),
+  // so keyboard-only users can answer immediately (plan §6).
   useEffect(() => {
     answerRef.current?.focus()
-  }, [dec])
+  }, [mode, dec])
 
   const nextDec = useCallback(() => {
     window.setTimeout(() => {

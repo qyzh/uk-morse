@@ -1,0 +1,10 @@
+# Cloudflare Pages cache policy (PLAN.md §9):
+# hashed assets are immutable, the shell revalidates every load.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/index.html
+  Cache-Control: public, max-age=0, must-revalidate
+
+/sw.js
+  Cache-Control: public, max-age=0, must-revalidate
