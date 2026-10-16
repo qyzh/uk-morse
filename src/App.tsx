@@ -124,7 +124,12 @@ export default function App() {
       </header>
 
       <main id="konten" tabIndex={-1} className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 pb-28 outline-none md:py-8 md:pb-16">
-        {view === 'trainer' && <Trainer />}
+        {view === 'trainer' && (
+          <div className="space-y-5">
+            <Trainer />
+            <Dictionary />
+          </div>
+        )}
         {view === 'dictionary' && <Dictionary />}
         {view === 'encoder' && <Encoder />}
         {view === 'practice' && <Practice />}
