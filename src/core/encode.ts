@@ -8,7 +8,7 @@ export function encodeChar(ch: string): string | null {
   return MORSE_MAP[ch.toUpperCase()] ?? null
 }
 
-/** Word → dit/dah tokens separated by single spaces; unknown chars → '¿'. */
+/** Word → dit/dah tokens separated by single spaces; unknown chars → '?'. */
 export function encodeWord(word: string, unknown = UNKNOWN): string {
   return [...word]
     .map((ch) => MORSE_MAP[ch.toUpperCase()] ?? unknown)

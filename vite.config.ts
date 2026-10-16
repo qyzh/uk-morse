@@ -6,6 +6,7 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   test: {
+    setupFiles: ['tests/setup.ts'],
     include: ['tests/**/*.test.ts', 'src/**/*.test.ts'],
     coverage: {
       reporter: ['text', 'html'],
