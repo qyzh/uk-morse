@@ -7,7 +7,6 @@
  *  - type: "Developer Mono" pairing — JetBrains Mono + IBM Plex Sans
  *
  * Dark is the product default (`:root`), light is `html.light`.
- * 22 UI defects fixed across the 5 views (see git history / README).
  */
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap');
 @import 'tailwindcss';

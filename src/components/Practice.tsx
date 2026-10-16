@@ -152,11 +152,17 @@ export function Practice() {
     setSpeedTarget(randomEntry())
     setSpeedDone(false)
     setSpeedActive(true)
+    window.clearTimeout(finishTimer.current)
+    finishTimer.current = window.setTimeout(() => {
+      setSpeedActive(false)
+      setSpeedDone(true)
+    }, SPEED_SECONDS * 1000)
   }
 
   const changeMode = (next: Mode) => {
     if (next === mode) return
     if (speedActive) {
+      window.clearTimeout(finishTimer.current)
       setSpeedActive(false)
       setSpeedDone(false)
       setSpeedTime(SPEED_SECONDS)
