@@ -5,3 +5,12 @@ coverage
 *.tsbuildinfo
 .DS_Store
 npm-debug.log*
+
+# Test files & artifacts (kept out of the repo per request)
+tests/e2e/
+playwright.config.ts
+.github/
+playwright-report/
+test-results/
+trace/
+playwright/.cache/
