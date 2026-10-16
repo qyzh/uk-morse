@@ -1,92 +1,154 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { decodeSymbol } from '../core/decode'
 import { useArrowBuffer } from '../hooks/useArrowBuffer'
 import { useMorseAudio } from '../hooks/useMorseAudio'
 import { useSettingsStore } from '../store/settingsStore'
-
-const KEYINFO = '← dit  ·  → dah  ·  Space commit  ·  Enter spasi  ·  Backspace undo  ·  Esc reset'
+import { PlayIcon, XIcon } from './icons'
+import { Button, InputPad, Kbd, Led, Panel } from './ui'
 
 export function Trainer() {
   const autoCommitMs = useSettingsStore((s) => s.autoCommitMs)
-  const wpm = useSettingsStore((s) => s.wpm)
-  const { play, beep, stop } = useMorseAudio()
+  const { playChars, beep } = useMorseAudio()
   const [output, setOutput] = useState('')
+  const [lit, setLit] = useState(false)
+  const [invalid, setInvalid] = useState(false)
+  const flashTimer = useRef<number | undefined>(undefined)
+  const invalidTimer = useRef<number | undefined>(undefined)
 
-  const { buffer, addSymbol, commit, word, undo, reset } = useArrowBuffer({
+  const flash = useCallback(() => {
+    setLit(true)
+    window.clearTimeout(flashTimer.current)
+    flashTimer.current = window.setTimeout(() => setLit(false), 200)
+  }, [])
+
+  useEffect(
+    () => () => {
+      window.clearTimeout(flashTimer.current)
+      window.clearTimeout(invalidTimer.current)
+    },
+    [],
+  )
+
+  const { buffer, push, commit, enter, backspace } = useArrowBuffer({
     enabled: true,
     autoCommitMs,
-    onBeep: beep,
-    // invalid patterns display as "?" (plan §3.1)
-    onCommit: (char) => setOutput((o) => o + char),
+    onBeep: (kind) => {
+      beep(kind)
+      flash()
+    },
+    onCommit: (char) => {
+      if (char === '?') {
+        setInvalid(true)
+        window.clearTimeout(invalidTimer.current)
+        invalidTimer.current = window.setTimeout(() => setInvalid(false), 1400)
+        return
+      }
+      setInvalid(false)
+      setOutput((o) => o + char)
+    },
     onEnter: () => setOutput((o) => o + ' '),
     onBackspaceEmpty: () => setOutput((o) => o.slice(0, -1)),
   })
 
-  const screenBtn =
-    'min-w-16 px-4 py-3 rounded-xl bg-neutral-800 hover:bg-neutral-700 active:bg-emerald-700 text-lg font-mono select-none'
+  const preview = buffer ? decodeSymbol(buffer) : null
+  const empty = output.length === 0
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-2xl border border-neutral-800 bg-neutral-900 p-6">
-        <p className="text-xs text-neutral-400 mb-2">
-          Simbol aktif {autoCommitMs > 0 ? `· auto-commit ${autoCommitMs}ms` : '· auto-commit off'}
-        </p>
-        <div
-          className="text-5xl md:text-7xl font-mono tracking-[0.3em] min-h-[4rem] text-emerald-400"
-          role="status"
-        >
-          {buffer || <span className="text-neutral-700">…</span>}
+    <div className="space-y-5">
+      <Panel className="p-5 sm:p-6">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-ink-3">
+            <Led on={lit || buffer.length > 0} />
+            Simbol aktif
+          </h2>
+          {invalid && (
+            <span role="status" className="flex items-center gap-1.5 text-xs text-danger-text">
+              <XIcon className="size-3.5" />
+              Simbol tidak dikenal
+            </span>
+          )}
         </div>
-        <p className="mt-2 text-xs text-neutral-500">{KEYINFO}</p>
-      </div>
 
-      <div className="rounded-2xl border border-neutral-800 bg-neutral-900 p-6">
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-xs text-neutral-400">Hasil decode</p>
+        <p
+          className={
+            'mt-3 min-h-16 break-all font-mono text-4xl tracking-[0.18em] sm:text-6xl ' +
+            (buffer ? 'text-signal-text glow-signal' : 'text-ink-3')
+          }
+        >
+          {buffer || (
+            <span className="text-sm tracking-normal">
+              Belum ada simbol — tekan <Kbd>←</Kbd> untuk dit, <Kbd>→</Kbd> untuk dah.
+            </span>
+          )}
+        </p>
+
+        <div className="mt-2 flex min-h-7 items-center">
+          {preview && (
+            <span className="inline-flex items-center gap-2 rounded-md border border-edge bg-surface-2 px-2.5 py-1 font-mono text-sm">
+              <span className="text-ink-3">=</span>
+              {preview === '?' ? (
+                <span className="text-danger-text">tidak dikenal</span>
+              ) : (
+                <span className="text-signal-text">{preview}</span>
+              )}
+            </span>
+          )}
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-ink-3">
+          <span className="inline-flex items-center gap-1.5">
+            <Kbd>←</Kbd> dit
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <Kbd>→</Kbd> dah
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <Kbd>Space</Kbd> commit huruf
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <Kbd>Enter</Kbd> spasi
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <Kbd>⌫</Kbd> hapus
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <Kbd>Esc</Kbd> reset
+          </span>
+        </div>
+      </Panel>
+
+      <Panel className="p-5 sm:p-6">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-xs font-medium uppercase tracking-wider text-ink-3">Hasil decode</h2>
           <div className="flex gap-2">
-            <button onClick={() => void play(output)} className="text-xs px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700">
-              ▶ Play ({wpm} WPM)
-            </button>
-            <button onClick={stop} className="text-xs px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700">
-              ■
-            </button>
-            <button onClick={() => setOutput('')} className="text-xs px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700">
-              Clear
-            </button>
+            <Button size="sm" variant="ghost" onClick={() => playChars(output)} disabled={empty}>
+              <PlayIcon className="size-3.5" />
+              Putar
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setOutput('')} disabled={empty}>
+              Bersihkan
+            </Button>
           </div>
         </div>
-        <div
-          className="text-2xl md:text-3xl font-mono min-h-[3rem] whitespace-pre-wrap break-all"
-          role="status"
-          aria-live="polite"
-        >
-          {output || <span className="text-neutral-600">—</span>}
+        <div role="status" aria-live="polite" className="mt-2 min-h-10">
+          {empty ? (
+            <p className="text-sm text-ink-3">Teks hasil decode muncul di sini.</p>
+          ) : (
+            <p className="whitespace-pre-wrap break-words font-mono text-2xl sm:text-3xl">{output}</p>
+          )}
         </div>
-      </div>
+      </Panel>
 
-      {/* on-screen fallback for touch devices without arrow keys (plan §6, §11) */}
-      <div className="rounded-2xl border border-neutral-800 bg-neutral-900 p-4">
-        <p className="text-xs text-neutral-400 mb-3 md:hidden">On-screen kontrol (untuk tanpa keyboard arah):</p>
-        <div className="flex flex-wrap justify-center gap-2">
-          <button onClick={() => addSymbol('dit')} className={screenBtn} aria-label="Tambah dit">
-            ·
-          </button>
-          <button onClick={() => addSymbol('dah')} className={screenBtn} aria-label="Tambah dah">
-            −
-          </button>
-          <button onClick={commit} className={screenBtn + ''} aria-label="Commit huruf">
-            Space
-          </button>
-          <button onClick={word} className={screenBtn + ''} aria-label="Commit kata">
-            Enter
-          </button>
-          <button onClick={undo} className={screenBtn + ''} aria-label="Undo">
-            ⌫
-          </button>
-          <button onClick={reset} className={screenBtn + ' text-rose-300'} aria-label="Reset buffer">
-            Esc
-          </button>
-        </div>
-      </div>
+      <Panel className="p-4 md:hidden">
+        <InputPad
+          onDit={() => push('.')}
+          onDah={() => push('-')}
+          onCommit={commit}
+          commitDisabled={buffer.length === 0}
+          onSpace={enter}
+          onBackspace={backspace}
+        />
+      </Panel>
     </div>
   )
 }

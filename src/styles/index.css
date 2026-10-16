@@ -1,1 +1,136 @@
-@import "tailwindcss";
+/**
+ * Signal Terminal — design tokens.
+ *
+ * Direction grounded in verified search results:
+ *  - style: "Dark Mode (OLED)" + terminal/equipment-panel look
+ *  - palette: "Coding Bootcamp" — terminal dark + signal green
+ *  - type: "Developer Mono" pairing — JetBrains Mono + IBM Plex Sans
+ *
+ * Dark is the product default (`:root`), light is `html.light`.
+ * 22 UI defects fixed across the 5 views (see git history / README).
+ */
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import 'tailwindcss';
+
+@theme inline {
+  --font-sans: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-edge: var(--edge);
+  --color-edge-strong: var(--edge-strong);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-signal: var(--signal);
+  --color-signal-ink: var(--signal-ink);
+  --color-signal-text: var(--signal-text);
+  --color-danger: var(--danger);
+  --color-danger-ink: var(--danger-ink);
+  --color-danger-text: var(--danger-text);
+  --color-warn: var(--warn);
+  --color-ring: var(--ring);
+}
+
+/* Dark theme (default — no first-paint flash for the primary persona). */
+:root {
+  color-scheme: dark;
+
+  --bg: #020617;
+  --surface: #0e1223;
+  --surface-2: #1a1e2f;
+  --edge: #2b3852;
+  --edge-strong: #475569;
+  --ink: #f8fafc;
+  --ink-2: #cbd5e1;
+  --ink-3: #94a3b8;
+  --signal: #22c55e;
+  --signal-ink: #052e16;
+  --signal-text: #4ade80;
+  --signal-glow: rgba(74, 222, 128, 0.4);
+  --danger: #f87171;
+  --danger-ink: #450a0a;
+  --danger-text: #f87171;
+  --warn: #fbbf24;
+  --ring: #f8fafc;
+}
+
+/* Light theme — first-class, not an afterthought. */
+html.light {
+  color-scheme: light;
+
+  --bg: #f6f8fa;
+  --surface: #ffffff;
+  --surface-2: #eef2f6;
+  --edge: #d7dfe9;
+  --edge-strong: #b6c2d1;
+  --ink: #0f172a;
+  --ink-2: #334155;
+  --ink-3: #5b6b80;
+  --signal: #15803d;
+  --signal-ink: #ffffff;
+  --signal-text: #166534;
+  --signal-glow: transparent;
+  --danger: #dc2626;
+  --danger-ink: #ffffff;
+  --danger-text: #b91c1c;
+  --warn: #b45309;
+  --ring: #0f172a;
+}
+
+@layer base {
+  html {
+    /* keep keyboard focus clear of the sticky header (WCAG 2.2 focus-not-obscured) */
+    scroll-padding-top: 4.5rem;
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* One visible focus treatment everywhere — keyboard only. */
+  :where(a, button, input, textarea, select, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  /* Native buttons show the arrow cursor; web apps expect a hand. */
+  :where(button, [role='button']):not(:disabled) {
+    cursor: pointer;
+  }
+
+  input[type='range'] {
+    accent-color: var(--signal);
+  }
+
+  input[type='search']::-webkit-search-cancel-button {
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--signal) 30%, transparent);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* CRT-ish glow for live Morse — dark theme only (var is transparent in light). */
+@utility glow-signal {
+  text-shadow: 0 0 18px var(--signal-glow);
+}
