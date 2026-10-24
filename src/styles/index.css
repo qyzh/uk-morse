@@ -1,19 +1,20 @@
 /**
  * Signal Terminal — design tokens.
  *
- * Palette rules (see Docs/COLOR_RULES.md):
+ * Palette rules (verified in tests/unit/contrast.test.ts):
  *  - Background:   #151515  (user-specified)
  *  - Primary text: #f5f5f5  (user-specified)
- *  - All other tokens derived from these two with ≥4.5:1 contrast
- *    against --bg for normal text, ≥3:1 for UI components.
+ *  - Text tokens derive from these two with ≥4.5:1 contrast against --bg.
+ *  - --edge is a decorative hairline (below 3:1 by design); --edge-strong is
+ *    the control boundary and meets ≥3:1 for UI components.
  *
  * Dark is the product default (`:root`), light is `html.light`.
  */
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap');
 @import 'tailwindcss';
 
 @theme inline {
-  --font-sans: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
   --color-bg: var(--bg);
@@ -46,13 +47,13 @@
   --surface: #1e1e1e;
   --surface-2: #292929;
 
-  /* Edges — subtle borders, never competing with ink */
+  /* Edges — --edge is a decorative hairline; --edge-strong is the control boundary */
   --edge: #3a3a3a;
-  --edge-strong: #525252;
+  --edge-strong: #6b6b6b;
 
   /* Ink hierarchy — contrast verified against --bg */
-  --ink-2: #c9c9c9;   /* ~7.5:1 → AA/AAA normal text */
-  --ink-3: #8a8a8a;   /* ~5.7:1 → AA normal text (muted labels only) */
+  --ink-2: #c9c9c9;   /* ~11:1 → AAA normal text */
+  --ink-3: #8a8a8a;   /* ~5.3:1 → AA normal text (muted labels only) */
 
   /* Signal green — accent / actions / live Morse */
   --signal: #22c55e;
@@ -86,7 +87,7 @@ html.light {
   --edge-strong: #8a8a8a;
 
   --ink-2: #4a4a4a;
-  --ink-3: #8a8a8a;
+  --ink-3: #6b6b6b;   /* ~4.9:1 → AA normal text */
 
   --signal: #15803d;
   --signal-ink: #ffffff;
@@ -111,8 +112,14 @@ html.light {
     background-color: var(--bg);
     color: var(--ink);
     font-family: var(--font-sans);
+    font-variant-ligatures: none;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--edge-strong) transparent;
   }
 
   :where(a, button, input, textarea, select, summary, [tabindex]):focus-visible {
@@ -125,7 +132,39 @@ html.light {
   }
 
   input[type='range'] {
-    accent-color: var(--signal);
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  input[type='range']::-webkit-slider-runnable-track {
+    height: 2px;
+    background: var(--edge-strong);
+  }
+
+  input[type='range']::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 8px;
+    height: 16px;
+    margin-top: -7px;
+    border: 0;
+    border-radius: 0;
+    background: var(--ink);
+  }
+
+  input[type='range']::-moz-range-track {
+    height: 2px;
+    background: var(--edge-strong);
+  }
+
+  input[type='range']::-moz-range-thumb {
+    width: 8px;
+    height: 16px;
+    border: 0;
+    border-radius: 0;
+    background: var(--ink);
   }
 
   input[type='search']::-webkit-search-cancel-button {
