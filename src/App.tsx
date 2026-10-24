@@ -54,33 +54,39 @@ export default function App() {
     document.documentElement.classList.toggle('light', theme === 'light')
     document
       .querySelector('meta[name="theme-color"]')
-      ?.setAttribute('content', theme === 'light' ? '#f6f8fa' : '#020617')
+      ?.setAttribute('content', theme === 'light' ? '#f5f5f5' : '#151515')
   }, [theme])
 
   useEffect(() => {
     const meta = VIEWS.find((v) => v.id === view)
-    document.title = meta ? `${meta.title} — Morse Trainer` : 'Morse Trainer'
+    document.title = meta ? `${meta.title} — morse_trainer` : 'morse_trainer'
   }, [view])
 
   return (
-    <div className="flex min-h-dvh flex-col bg-bg font-sans text-ink">
+    <div className="min-h-dvh overflow-x-clip bg-bg font-sans text-ink">
+      <div className="relative mx-auto flex min-h-dvh w-full max-w-5xl flex-col md:border-x md:border-edge">
       <a
         href="#konten"
-        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-signal focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-signal-ink"
+        onClick={(e) => {
+          e.preventDefault()
+          document.getElementById('konten')?.focus()
+        }}
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:bg-signal focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:uppercase focus:tracking-[0.08em] focus:text-signal-ink"
       >
         Langsung ke konten
       </a>
 
-      <header className="sticky top-0 z-20 border-b border-edge bg-bg/85 backdrop-blur">
-        <div className="mx-auto flex h-14 w-full max-w-5xl items-center gap-4 px-4">
-          <a href="#/trainer" className="flex shrink-0 items-center gap-2.5">
-            <span className="inline-block size-2.5 rounded-full bg-signal shadow-[0_0_10px_var(--signal)]" aria-hidden="true" />
-            <span className="text-sm font-semibold uppercase tracking-[0.18em]">Morse Trainer</span>
+      <header className="sticky top-0 z-20 border-b border-edge bg-bg/90 backdrop-blur">
+        <PlusMark className="-bottom-2.25 -left-1.25 hidden md:block" />
+        <PlusMark className="-bottom-2.25 -right-1.25 hidden md:block" />
+        <div className="flex h-14 items-center gap-4 px-4 md:px-8 lg:gap-6">
+          <a href="#/trainer" aria-label="Morse Trainer" className="flex h-11 shrink-0 items-center text-base font-medium tracking-tight">
+            morse_trainer
+            <span aria-hidden="true" className="ml-1.5 inline-block h-[0.7em] w-[0.5em] bg-ink" />
           </a>
 
-          <nav aria-label="Navigasi utama" className="ml-auto hidden items-center gap-1 md:flex">
+          <nav aria-label="Navigasi utama" className="ml-auto hidden items-center gap-4 pointer-fine:md:flex">
             {VIEWS.map((v) => {
-              const Icon = v.Icon
               const active = v.id === view
               return (
                 <a
@@ -88,14 +94,17 @@ export default function App() {
                   href={`#/${v.id}`}
                   aria-current={active ? 'page' : undefined}
                   className={cx(
-                    'flex h-9 items-center gap-2 rounded-lg px-3 text-sm font-medium transition-colors duration-150',
-                    active
-                      ? 'bg-surface-2 text-signal-text'
-                      : 'text-ink-3 hover:bg-surface-2 hover:text-ink-2',
+                    'inline-flex h-11 items-center gap-1 text-sm transition-colors duration-150',
+                    active ? 'text-ink' : 'text-ink-3 hover:text-ink',
                   )}
                 >
-                  <Icon className="size-4" />
+                  <span aria-hidden="true" className="hidden text-ink-3/70 lg:inline">
+                    [
+                  </span>
                   {v.label}
+                  <span aria-hidden="true" className="hidden text-ink-3/70 lg:inline">
+                    ]
+                  </span>
                 </a>
               )
             })}
@@ -107,7 +116,7 @@ export default function App() {
               onClick={toggleMute}
               aria-pressed={muted}
               aria-label={muted ? 'Aktifkan bunyi' : 'Bisukan bunyi'}
-              className="flex size-10 items-center justify-center rounded-lg text-ink-3 transition-colors duration-150 hover:bg-surface-2 hover:text-ink"
+              className="flex size-11 items-center justify-center text-ink-3 transition-colors duration-150 hover:bg-surface-2 hover:text-ink"
             >
               {muted ? <VolumeOffIcon className="size-4" /> : <VolumeIcon className="size-4" />}
             </button>
@@ -115,7 +124,7 @@ export default function App() {
               type="button"
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
               aria-label={`Ganti ke tema ${theme === 'dark' ? 'terang' : 'gelap'}`}
-              className="flex size-10 items-center justify-center rounded-lg text-ink-3 transition-colors duration-150 hover:bg-surface-2 hover:text-ink"
+              className="flex size-11 items-center justify-center text-ink-3 transition-colors duration-150 hover:bg-surface-2 hover:text-ink"
             >
               {theme === 'dark' ? <SunIcon className="size-4" /> : <MoonIcon className="size-4" />}
             </button>
@@ -123,14 +132,14 @@ export default function App() {
         </div>
       </header>
 
-      <main id="konten" tabIndex={-1} className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 pb-28 outline-none md:py-8 md:pb-16">
+      <main id="konten" tabIndex={-1} className="w-full flex-1 px-4 py-8 pb-28 outline-none md:px-8 md:py-12 pointer-fine:md:pb-20 pointer-coarse:md:pb-28">
         {view === 'trainer' && (
-          <div className="space-y-5">
+          <div className="space-y-12">
             <Trainer />
             <Dictionary />
           </div>
         )}
-        {view === 'dictionary' && <Dictionary />}
+        {view === 'dictionary' && <Dictionary standalone />}
         {view === 'encoder' && <Encoder />}
         {view === 'practice' && <Practice />}
         {view === 'settings' && <SettingsPanel />}
@@ -138,7 +147,7 @@ export default function App() {
 
       <nav
         aria-label="Navigasi utama"
-        className="fixed inset-x-0 bottom-0 z-20 border-t border-edge bg-bg/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
+        className="fixed inset-x-0 bottom-0 z-20 border-t border-edge bg-bg/95 pb-[env(safe-area-inset-bottom)] backdrop-blur pointer-fine:md:hidden"
       >
         <div className="grid grid-cols-5">
           {VIEWS.map((v) => {
@@ -150,8 +159,8 @@ export default function App() {
                 href={`#/${v.id}`}
                 aria-current={active ? 'page' : undefined}
                 className={cx(
-                  'flex h-14 flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-colors duration-150',
-                  active ? 'text-signal-text' : 'text-ink-3',
+                  'flex h-14 flex-col items-center justify-center gap-0.5 border-t-2 text-[10px] font-medium uppercase tracking-[0.06em] transition-colors duration-150',
+                  active ? 'border-ink text-ink' : 'border-transparent text-ink-3 hover:text-ink',
                 )}
               >
                 <Icon className="size-5" />
@@ -161,6 +170,19 @@ export default function App() {
           })}
         </div>
       </nav>
+      </div>
     </div>
+  )
+}
+
+/** Crosshair corner mark (mdxcn frame). Decorative. */
+function PlusMark({ className }: { className?: string }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={cx('pointer-events-none absolute z-10 select-none font-mono text-[11px] leading-none text-edge-strong', className)}
+    >
+      +
+    </span>
   )
 }

@@ -1,13 +1,13 @@
 {
-  "name": "Morse Trainer — Latihan Kode Morse",
-  "short_name": "Morse Trainer",
+  "name": "morse_trainer — Latihan Kode Morse",
+  "short_name": "morse_trainer",
   "description": "Latihan dan kamus kode Morse di browser: input lewat panah kiri (dit) dan kanan (dah), kamus lengkap, mode latihan, audio Web Audio.",
   "lang": "id",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#020617",
-  "theme_color": "#020617",
+  "background_color": "#151515",
+  "theme_color": "#151515",
   "icons": [
     {
       "src": "/icon.svg",
