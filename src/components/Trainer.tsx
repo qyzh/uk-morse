@@ -4,7 +4,16 @@ import { useArrowBuffer } from '../hooks/useArrowBuffer'
 import { useMorseAudio } from '../hooks/useMorseAudio'
 import { useSettingsStore } from '../store/settingsStore'
 import { PlayIcon, XIcon } from './icons'
-import { Button, InputPad, Kbd, Led, Panel } from './ui'
+import { Button, InputPad, Kbd, Led, PageTitle } from './ui'
+
+const SHORTCUTS: Array<[string, string]> = [
+  ['←', 'dit'],
+  ['→', 'dah'],
+  ['Space', 'commit huruf'],
+  ['Enter', 'spasi'],
+  ['⌫', 'hapus'],
+  ['Esc', 'reset'],
+]
 
 export function Trainer() {
   const autoCommitMs = useSettingsStore((s) => s.autoCommitMs)
@@ -54,15 +63,23 @@ export function Trainer() {
   const empty = output.length === 0
 
   return (
-    <div className="space-y-5">
-      <Panel className="p-5 sm:p-6">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-ink-3">
+    <div className="space-y-10">
+      <section>
+        <PageTitle>Ketuk Morse dengan tombol panah.</PageTitle>
+        <p className="mt-4 max-w-md text-base text-ink-2">
+          Tekan dit dan dah, lalu commit untuk menjadikannya huruf.
+        </p>
+
+        <div className="mt-10 flex items-center justify-between gap-3">
+          <h2 className="flex items-center gap-2 text-sm text-ink-3">
+            <span aria-hidden="true" className="select-none text-ink-3/70">
+              //
+            </span>
             <Led on={lit || buffer.length > 0} />
-            Simbol aktif
+            <span>simbol aktif</span>
           </h2>
           {invalid && (
-            <span role="status" className="flex items-center gap-1.5 text-xs text-danger-text">
+            <span role="status" className="flex items-center gap-1.5 text-sm text-danger-text">
               <XIcon className="size-3.5" />
               Simbol tidak dikenal
             </span>
@@ -76,7 +93,7 @@ export function Trainer() {
           }
         >
           {buffer || (
-            <span className="text-sm tracking-normal">
+            <span className="text-base tracking-normal">
               Belum ada simbol — tekan <Kbd>←</Kbd> untuk dit, <Kbd>→</Kbd> untuk dah.
             </span>
           )}
@@ -84,63 +101,27 @@ export function Trainer() {
 
         <div className="mt-2 flex min-h-7 items-center">
           {preview && (
-            <span className="inline-flex items-center gap-2 rounded-md border border-edge bg-surface-2 px-2.5 py-1 font-mono text-sm">
+            <span className="inline-flex items-center gap-2 font-mono text-sm">
               <span className="text-ink-3">=</span>
               {preview === '?' ? (
                 <span className="text-danger-text">tidak dikenal</span>
               ) : (
-                <span className="text-signal-text">{preview}</span>
+                <span className="text-ink">{preview}</span>
               )}
             </span>
           )}
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-ink-3">
-          <span className="inline-flex items-center gap-1.5">
-            <Kbd>←</Kbd> dit
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <Kbd>→</Kbd> dah
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <Kbd>Space</Kbd> commit huruf
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <Kbd>Enter</Kbd> spasi
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <Kbd>⌫</Kbd> hapus
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <Kbd>Esc</Kbd> reset
-          </span>
-        </div>
-      </Panel>
+        <ul className="mt-6 hidden flex-wrap gap-x-5 gap-y-2 text-sm text-ink-3 pointer-fine:md:flex">
+          {SHORTCUTS.map(([key, label]) => (
+            <li key={key} className="inline-flex items-center gap-1.5">
+              <Kbd>{key}</Kbd> {label}
+            </li>
+          ))}
+        </ul>
 
-      <Panel className="p-5 sm:p-6">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-xs font-medium uppercase tracking-wider text-ink-3">Hasil decode</h2>
-          <div className="flex gap-2">
-            <Button size="sm" variant="ghost" onClick={() => playChars(output)} disabled={empty}>
-              <PlayIcon className="size-3.5" />
-              Putar
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => setOutput('')} disabled={empty}>
-              Bersihkan
-            </Button>
-          </div>
-        </div>
-        <div role="status" aria-live="polite" className="mt-2 min-h-10">
-          {empty ? (
-            <p className="text-sm text-ink-3">Teks hasil decode muncul di sini.</p>
-          ) : (
-            <p className="whitespace-pre-wrap break-words font-mono text-2xl sm:text-3xl">{output}</p>
-          )}
-        </div>
-      </Panel>
-
-      <Panel className="p-4 md:hidden">
         <InputPad
+          className="mt-6 pointer-fine:md:hidden"
           onDit={() => push('.')}
           onDah={() => push('-')}
           onCommit={commit}
@@ -148,7 +129,34 @@ export function Trainer() {
           onSpace={enter}
           onBackspace={backspace}
         />
-      </Panel>
+      </section>
+
+      <section className="border-t border-edge pt-6">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="flex items-center gap-2 text-sm text-ink-3">
+            <span aria-hidden="true" className="select-none text-ink-3/70">
+              //
+            </span>
+            <span>hasil decode</span>
+          </h2>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="ghost" onClick={() => setOutput('')} disabled={empty}>
+              Bersihkan
+            </Button>
+            <Button size="sm" variant="primary" onClick={() => playChars(output)} disabled={empty}>
+              <PlayIcon className="size-3.5" />
+              Putar
+            </Button>
+          </div>
+        </div>
+        <div role="status" aria-live="polite" className="mt-3 min-h-10">
+          {empty ? (
+            <p className="text-base text-ink-3">Teks hasil decode muncul di sini.</p>
+          ) : (
+            <p className="whitespace-pre-wrap wrap-break-word font-mono text-2xl sm:text-3xl">{output}</p>
+          )}
+        </div>
+      </section>
     </div>
   )
 }

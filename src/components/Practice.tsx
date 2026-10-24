@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { MORSE_LIST, type MorseEntry } from '../core/morse-data'
 import { useArrowBuffer } from '../hooks/useArrowBuffer'
 import { useMorseAudio } from '../hooks/useMorseAudio'
 import { useSettingsStore } from '../store/settingsStore'
 import { PlayIcon, RotateIcon } from './icons'
-import { Button, Feedback, InputPad, Kbd, Panel, ScoreStrip, Segmented } from './ui'
+import { Button, Feedback, InputPad, Kbd, PageTitle, ScoreStrip, Segmented } from './ui'
 import type { FeedbackState } from './ui'
 
 const letters = MORSE_LIST.filter((e) => e.category === 'letter')
@@ -29,7 +29,7 @@ const MODES = [
 
 export function Practice() {
   const autoCommitMs = useSettingsStore((s) => s.autoCommitMs)
-  const { play, beep } = useMorseAudio()
+  const { play, beep, stop } = useMorseAudio()
   const [mode, setMode] = useState<Mode>('encode')
 
   /* ---------- Encode drill ---------- */
@@ -37,13 +37,9 @@ export function Practice() {
   const [encScore, setEncScore] = useState(0)
   const [encTotal, setEncTotal] = useState(0)
   const [encFeedback, setEncFeedback] = useState<FeedbackState>(null)
-
-  const advanceEnc = useCallback(() => {
-    window.setTimeout(() => {
-      setEncTarget(randomEntry())
-      setEncFeedback(null)
-    }, 450)
-  }, [])
+  const [encLocked, setEncLocked] = useState(false)
+  const encLockedRef = useRef(false)
+  const encTimer = useRef<number | undefined>(undefined)
 
   const {
     buffer: encBuffer,
@@ -52,10 +48,13 @@ export function Practice() {
     enter: encEnter,
     backspace: encBackspace,
   } = useArrowBuffer({
-    enabled: mode === 'encode',
+    enabled: mode === 'encode' && !encLocked,
     autoCommitMs,
     onBeep: beep,
     onCommit: (char) => {
+      if (encLockedRef.current) return
+      encLockedRef.current = true
+      setEncLocked(true)
       setEncTotal((t) => t + 1)
       if (char === encTarget.char) {
         setEncScore((s) => s + 1)
@@ -63,7 +62,14 @@ export function Practice() {
       } else {
         setEncFeedback({ kind: 'bad', text: `Salah — target ${encTarget.char}` })
       }
-      advanceEnc()
+      window.clearTimeout(encTimer.current)
+      encTimer.current = window.setTimeout(() => {
+        stop()
+        setEncTarget(randomEntry())
+        setEncFeedback(null)
+        setEncLocked(false)
+        encLockedRef.current = false
+      }, 450)
     },
   })
   const encMobile = mode === 'encode'
@@ -74,25 +80,24 @@ export function Practice() {
   const [decScore, setDecScore] = useState(0)
   const [decTotal, setDecTotal] = useState(0)
   const [decFeedback, setDecFeedback] = useState<FeedbackState>(null)
+  const [decLocked, setDecLocked] = useState(false)
+  const [decRound, setDecRound] = useState(0)
+  const decLockedRef = useRef(false)
+  const decTimer = useRef<number | undefined>(undefined)
   const answerRef = useRef<HTMLInputElement>(null)
 
-  // Autofocus whenever the question changes OR the panel mounts (mode switch),
-  // so keyboard-only users can answer immediately (plan §6).
+  // Autofocus whenever the panel mounts (mode switch) or a new question is
+  // ready — a repeated random letter must not leave the answer box blurred.
   useEffect(() => {
     answerRef.current?.focus()
-  }, [mode, dec])
+  }, [mode, decRound])
 
-  const nextDec = useCallback(() => {
-    window.setTimeout(() => {
-      setDec(randomEntry())
-      setDecAnswer('')
-      setDecFeedback(null)
-    }, 450)
-  }, [])
-
-  const submitDec = useCallback(() => {
+  const submitDec = () => {
+    if (decLockedRef.current) return
     const guess = decAnswer.trim().toUpperCase()
     if (!guess) return
+    decLockedRef.current = true
+    setDecLocked(true)
     setDecTotal((t) => t + 1)
     if (guess === dec.char) {
       setDecScore((s) => s + 1)
@@ -100,8 +105,17 @@ export function Practice() {
     } else {
       setDecFeedback({ kind: 'bad', text: `Salah — jawabannya ${dec.char}` })
     }
-    nextDec()
-  }, [dec, decAnswer, nextDec])
+    window.clearTimeout(decTimer.current)
+    decTimer.current = window.setTimeout(() => {
+      stop()
+      setDec(randomEntry())
+      setDecAnswer('')
+      setDecFeedback(null)
+      setDecLocked(false)
+      decLockedRef.current = false
+      setDecRound((r) => r + 1)
+    }, 450)
+  }
 
   /* ---------- Speed test ---------- */
   const [speedActive, setSpeedActive] = useState(false)
@@ -115,6 +129,8 @@ export function Practice() {
   useEffect(
     () => () => {
       window.clearTimeout(finishTimer.current)
+      window.clearTimeout(encTimer.current)
+      window.clearTimeout(decTimer.current)
     },
     [],
   )
@@ -147,6 +163,7 @@ export function Practice() {
   })
 
   const startSpeed = () => {
+    stop()
     speedReset()
     setSpeedScore(0)
     setSpeedTotal(0)
@@ -163,6 +180,7 @@ export function Practice() {
 
   const changeMode = (next: Mode) => {
     if (next === mode) return
+    stop()
     if (speedActive) {
       window.clearTimeout(finishTimer.current)
       setSpeedActive(false)
@@ -176,17 +194,22 @@ export function Practice() {
   const wpm = Math.round((speedScore / 5) / (SPEED_SECONDS / 60))
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-8">
+      <header>
+        <PageTitle>Latih telinga dan jarimu.</PageTitle>
+      </header>
+
       <Segmented label="Mode latihan" value={mode} options={MODES} onChange={changeMode} />
 
       {mode === 'encode' && (
         <>
-          <Panel className="flex flex-col items-center gap-5 p-6 sm:p-8">
-            <h2 className="text-xs font-medium uppercase tracking-wider text-ink-3">
-              Encode — ketik morse dari huruf ini
+          <section className="flex flex-col items-start gap-5 border-t border-edge pt-6">
+            <h2 className="text-sm text-ink-3">
+              <span aria-hidden="true" className="mr-2 select-none text-ink-3/70">//</span>
+              encode — ketik morse dari huruf ini
             </h2>
-            <p className="font-mono text-6xl text-signal-text glow-signal">{encTarget.char}</p>
-            <p className={'min-h-9 font-mono text-2xl tracking-[0.18em] ' + (encBuffer ? 'text-ink' : 'text-ink-3')}>
+            <p className="font-mono text-6xl text-ink">{encTarget.char}</p>
+            <p className={'min-h-9 font-mono text-2xl tracking-[0.18em] ' + (encBuffer ? 'text-signal-text' : 'text-ink-3')}>
               {encBuffer || (
                 <span className="font-sans text-sm tracking-normal">
                   <Kbd>←</Kbd> dit · <Kbd>→</Kbd> dah · <Kbd>Space</Kbd> commit
@@ -195,35 +218,34 @@ export function Practice() {
             </p>
             <Feedback state={encFeedback} />
             <ScoreStrip score={encScore} total={encTotal} />
-          </Panel>
+          </section>
           {encMobile && (
-            <Panel className="p-4 md:hidden">
-              <InputPad
-                onDit={() => encPush('.')}
-                onDah={() => encPush('-')}
-                onCommit={encCommit}
-                commitDisabled={encBuffer.length === 0}
-                onSpace={encEnter}
-                onBackspace={encBackspace}
-              />
-            </Panel>
+            <InputPad
+              className="pointer-fine:md:hidden"
+              onDit={() => encPush('.')}
+              onDah={() => encPush('-')}
+              onCommit={encCommit}
+              commitDisabled={encBuffer.length === 0 || encLocked}
+              onSpace={encEnter}
+              onBackspace={encBackspace}
+            />
           )}
         </>
       )}
 
       {mode === 'decode' && (
-        <Panel className="flex flex-col items-center gap-5 p-6 sm:p-8">
-          <h2 className="text-xs font-medium uppercase tracking-wider text-ink-3">
-            Decode — baca atau dengar, lalu ketik hurufnya
+        <section className="flex flex-col items-start gap-5 border-t border-edge pt-6">
+          <h2 className="text-sm text-ink-3">
+            <span aria-hidden="true" className="mr-2 select-none text-ink-3/70">//</span>
+            decode — baca atau dengar, lalu ketik hurufnya
           </h2>
           <div className="flex items-center gap-3">
-            <p className="font-mono text-4xl tracking-[0.2em] text-signal-text glow-signal sm:text-5xl">
+            <p className="font-mono text-4xl tracking-[0.2em] text-ink sm:text-5xl">
               {dec.morse}
             </p>
             <Button
               variant="secondary"
               size="icon"
-              className="rounded-full"
               onClick={() => play(dec.morse)}
               aria-label="Putar audio morse ini"
             >
@@ -245,33 +267,34 @@ export function Practice() {
               ref={answerRef}
               value={decAnswer}
               onChange={(e) => setDecAnswer(e.target.value.toUpperCase())}
-              disabled={decFeedback !== null}
+              disabled={decLocked}
               maxLength={8}
               autoComplete="off"
               spellCheck={false}
               autoCapitalize="characters"
               placeholder="?"
-              className="h-11 w-24 rounded-lg border border-edge bg-surface-2 text-center font-mono text-lg uppercase text-ink placeholder:text-ink-3 disabled:opacity-50"
+              className="h-11 w-24 border-0 border-b border-edge-strong bg-transparent text-center font-mono text-lg uppercase text-ink transition-colors duration-150 placeholder:text-ink-3 hover:border-ink-3 focus:border-ink-3 disabled:opacity-50"
             />
-            <Button type="submit" variant="primary" disabled={decFeedback !== null || decAnswer.trim() === ''}>
+            <Button type="submit" variant="primary" disabled={decLocked || decAnswer.trim() === ''}>
               Periksa
             </Button>
           </form>
           <Feedback state={decFeedback} />
           <ScoreStrip score={decScore} total={decTotal} />
-        </Panel>
+        </section>
       )}
 
       {mode === 'speed' && (
         <>
-          <Panel className="flex flex-col items-center gap-5 p-6 sm:p-8">
-            <h2 className="text-xs font-medium uppercase tracking-wider text-ink-3">
-              Speed test — {SPEED_SECONDS} detik, kejar skor sebanyak mungkin
+          <section className="flex flex-col items-start gap-5 border-t border-edge pt-6">
+            <h2 className="text-sm text-ink-3">
+              <span aria-hidden="true" className="mr-2 select-none text-ink-3/70">//</span>
+              speed test — {SPEED_SECONDS} detik, kejar skor sebanyak mungkin
             </h2>
 
             {!speedActive && !speedDone && (
               <>
-                <p className="max-w-md text-center text-sm text-ink-3">
+                <p className="max-w-md text-base text-ink-2">
                   Huruf muncul satu per satu. Ketik morse-nya dengan panah, lalu <Kbd>Space</Kbd>{' '}
                   untuk commit. Skor dihitung dari huruf benar.
                 </p>
@@ -286,7 +309,7 @@ export function Practice() {
               <>
                 <div className="w-full max-w-xs">
                   <div className="mb-1.5 flex items-baseline justify-between">
-                    <span className="text-xs uppercase tracking-wider text-ink-3">Waktu</span>
+                    <span className="text-sm text-ink-3">waktu</span>
                     <span
                       role="timer"
                       aria-label="Sisa waktu"
@@ -295,15 +318,15 @@ export function Practice() {
                       {formatTime(speedTime)}
                     </span>
                   </div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-surface-2">
+                  <div className="h-1.5 overflow-hidden bg-surface-2">
                     <div
-                      className="h-full rounded-full bg-signal transition-[width] duration-1000 ease-linear"
+                      className="h-full bg-ink-2 transition-[width] duration-1000 ease-linear"
                       style={{ width: `${(speedTime / SPEED_SECONDS) * 100}%` }}
                     />
                   </div>
                 </div>
-                <p className="font-mono text-6xl text-signal-text glow-signal">{speedTarget.char}</p>
-                <p className={'min-h-9 font-mono text-2xl tracking-[0.18em] ' + (speedBuffer ? 'text-ink' : 'text-ink-3')}>
+                <p className="font-mono text-6xl text-ink">{speedTarget.char}</p>
+                <p className={'min-h-9 font-mono text-2xl tracking-[0.18em] ' + (speedBuffer ? 'text-signal-text' : 'text-ink-3')}>
                   {speedBuffer || '…'}
                 </p>
                 <ScoreStrip score={speedScore} total={speedTotal} />
@@ -311,17 +334,20 @@ export function Practice() {
             )}
 
             {speedDone && (
-              <div role="status" aria-live="polite" className="flex flex-col items-center gap-4">
-                <p className="text-xs uppercase tracking-wider text-ink-3">Hasil</p>
+              <div role="status" aria-live="polite" className="flex flex-col items-start gap-4">
+                <p className="text-sm text-ink-3">
+                  <span aria-hidden="true" className="mr-2 select-none text-ink-3/70">//</span>
+                  hasil
+                </p>
                 {speedTotal === 0 ? (
-                  <p className="text-sm text-ink-3">Tidak ada input sama sekali. Coba lagi, pelan-pelan dulu.</p>
+                  <p className="text-base text-ink-3">Tidak ada input sama sekali. Coba lagi, pelan-pelan dulu.</p>
                 ) : (
                   <>
-                    <p className="font-mono text-5xl tabular-nums text-signal-text glow-signal">
+                    <p className="font-mono text-5xl tabular-nums text-ink">
                       {wpm}
                       <span className="ml-2 text-lg text-ink-3">WPM</span>
                     </p>
-                    <p className="text-sm text-ink-2">
+                    <p className="text-base text-ink-2">
                       {speedScore} benar dari {speedTotal} soal · akurasi {accuracy}%
                     </p>
                   </>
@@ -332,18 +358,17 @@ export function Practice() {
                 </Button>
               </div>
             )}
-          </Panel>
+          </section>
           {speedActive && (
-            <Panel className="p-4 md:hidden">
-              <InputPad
-                onDit={() => speedPush('.')}
-                onDah={() => speedPush('-')}
-                onCommit={speedCommit}
-                commitDisabled={speedBuffer.length === 0}
-                onSpace={speedEnter}
-                onBackspace={speedBackspace}
-              />
-            </Panel>
+            <InputPad
+              className="pointer-fine:md:hidden"
+              onDit={() => speedPush('.')}
+              onDah={() => speedPush('-')}
+              onCommit={speedCommit}
+              commitDisabled={speedBuffer.length === 0}
+              onSpace={speedEnter}
+              onBackspace={speedBackspace}
+            />
           )}
         </>
       )}

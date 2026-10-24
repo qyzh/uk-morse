@@ -10,8 +10,8 @@ import {
   useSettingsStore,
 } from '../store/settingsStore'
 import type { Theme } from '../store/settingsStore'
-import { CheckIcon, KeyboardIcon, MoonIcon, RotateIcon, SunIcon, VolumeIcon, VolumeOffIcon } from './icons'
-import { Button, Panel, Segmented } from './ui'
+import { CheckIcon, MoonIcon, SunIcon, VolumeIcon, VolumeOffIcon } from './icons'
+import { Button, PageTitle, Segmented } from './ui'
 
 const THEME_OPTIONS: ReadonlyArray<{ value: Theme; label: string; icon: ReactNode }> = [
   { value: 'dark', label: 'Gelap', icon: <MoonIcon className="size-3.5" /> },
@@ -42,7 +42,7 @@ function RangeField({
   return (
     <div>
       <div className="flex items-baseline justify-between gap-3">
-        <label htmlFor={id} className="text-sm font-medium text-ink-2">
+        <label htmlFor={id} className="text-sm text-ink-2">
           {label}
         </label>
         <span className="font-mono text-sm tabular-nums text-ink">{display}</span>
@@ -57,17 +57,26 @@ function RangeField({
         onChange={(e) => onChange(e.target.valueAsNumber)}
         className="mt-2 h-8 w-full"
       />
-      {hint && <p className="mt-1 text-xs text-ink-3">{hint}</p>}
+      {hint && (
+        <p className="mt-1 text-base text-ink-2">
+          <span aria-hidden="true" className="mr-1.5 select-none text-ink-3/70">//</span>
+          {hint}
+        </p>
+      )}
     </div>
   )
 }
 
-function SectionTitle({ icon, children }: { icon: ReactNode; children: ReactNode }) {
+function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <h2 className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-ink-3">
-      {icon}
+    <section className="space-y-5 border-t border-edge pt-6">
+      <h2 className="text-2xl font-medium tracking-tight">
+        <span aria-hidden="true" className="text-ink-3">[</span>
+        <span className="mx-2">{title.toLowerCase()}</span>
+        <span aria-hidden="true" className="text-ink-3">]</span>
+      </h2>
       {children}
-    </h2>
+    </section>
   )
 }
 
@@ -89,9 +98,13 @@ export function SettingsPanel() {
   }
 
   return (
-    <div className="max-w-2xl space-y-5">
-      <Panel className="space-y-5 p-5 sm:p-6">
-        <SectionTitle icon={<VolumeIcon className="size-3.5" />}>Audio</SectionTitle>
+    <div className="max-w-2xl space-y-10">
+      <header>
+        <PageTitle>Pengaturan</PageTitle>
+        <p className="mt-4 max-w-md text-base text-ink-2">Suara, input, dan tampilan.</p>
+      </header>
+
+      <Section title="Audio">
 
         <RangeField
           id="set-wpm"
@@ -125,11 +138,11 @@ export function SettingsPanel() {
         />
 
         <div className="flex flex-wrap gap-2">
-          <Button variant="secondary" size="sm" onClick={() => play('-.-')} disabled={s.muted}>
+          <Button variant="ghost" size="sm" onClick={() => play('-.-')} disabled={s.muted}>
             <VolumeIcon className="size-3.5" />
             Tes nada (K)
           </Button>
-          <Button variant="secondary" size="sm" onClick={s.toggleMute}>
+          <Button variant="ghost" size="sm" onClick={s.toggleMute}>
             {s.muted ? (
               <>
                 <VolumeOffIcon className="size-3.5" />
@@ -143,11 +156,10 @@ export function SettingsPanel() {
             )}
           </Button>
         </div>
-        {s.muted && <p className="text-xs text-ink-3">Bunyi sedang dimatikan — tes nada tidak terdengar.</p>}
-      </Panel>
+        {s.muted && <p className="text-base text-ink-2">Bunyi sedang dimatikan — tes nada tidak terdengar.</p>}
+      </Section>
 
-      <Panel className="space-y-5 p-5 sm:p-6">
-        <SectionTitle icon={<KeyboardIcon className="size-3.5" />}>Input</SectionTitle>
+      <Section title="Input">
         <RangeField
           id="set-autocommit"
           label="Auto-commit"
@@ -159,26 +171,24 @@ export function SettingsPanel() {
           onChange={s.setAutoCommitMs}
           hint="Commit huruf otomatis setelah jeda; 0 = hanya manual dengan Space."
         />
-      </Panel>
+      </Section>
 
-      <Panel className="space-y-4 p-5 sm:p-6">
-        <SectionTitle icon={<SunIcon className="size-3.5" />}>Tampilan</SectionTitle>
+      <Section title="Tampilan">
         <div>
-          <span className="text-sm font-medium text-ink-2">Tema</span>
+          <span className="text-sm text-ink-2">Tema</span>
           <div className="mt-2">
             <Segmented label="Tema" value={s.theme} options={THEME_OPTIONS} onChange={s.setTheme} />
           </div>
         </div>
-      </Panel>
+      </Section>
 
-      <Panel className="space-y-4 p-5 sm:p-6">
-        <SectionTitle icon={<RotateIcon className="size-3.5" />}>Data</SectionTitle>
-        <p className="text-sm text-ink-2">
+      <Section title="Data">
+        <p className="text-base text-ink-2">
           Preferensi tersimpan otomatis di perangkat ini (localStorage). Tidak ada data yang dikirim
           ke server.
         </p>
         {resetDone && (
-          <p role="status" className="flex items-center gap-1.5 text-sm text-signal-text">
+          <p role="status" className="flex items-center gap-1.5 text-sm text-ink-2">
             <CheckIcon className="size-4" />
             Pengaturan dikembalikan ke default.
           </p>
@@ -198,7 +208,7 @@ export function SettingsPanel() {
             Reset pengaturan
           </Button>
         )}
-      </Panel>
+      </Section>
     </div>
   )
 }

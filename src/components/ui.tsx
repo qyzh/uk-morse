@@ -1,6 +1,6 @@
 /**
  * Shared UI primitives on the design tokens (Signal Terminal).
- * One Button/Panel/Toggle glossary keeps all views consistent.
+ * One Button/Segmented glossary keeps all views consistent.
  */
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
 import { cx } from './cx'
@@ -16,7 +16,7 @@ type ButtonSize = 'sm' | 'md' | 'lg' | 'icon' | 'iconSm' | 'none'
 const VARIANTS: Record<ButtonVariant, string> = {
   primary: 'bg-signal text-signal-ink hover:brightness-110 active:brightness-95',
   secondary:
-    'border border-edge bg-surface text-ink hover:border-edge-strong hover:bg-surface-2',
+    'border border-edge-strong text-ink hover:bg-surface-2 active:bg-surface-2/70',
   ghost: 'text-ink-2 hover:bg-surface-2 hover:text-ink',
   danger: 'bg-danger text-danger-ink hover:brightness-110 active:brightness-95',
   dangerGhost:
@@ -24,11 +24,11 @@ const VARIANTS: Record<ButtonVariant, string> = {
 }
 
 const SIZES: Record<ButtonSize, string> = {
-  sm: 'h-9 rounded-lg px-3 text-xs',
-  md: 'h-10 rounded-lg px-4 text-sm',
-  lg: 'h-12 rounded-lg px-5 text-sm',
-  icon: 'size-10 rounded-lg',
-  iconSm: 'size-8 rounded-lg',
+  sm: 'h-11 px-3 text-xs uppercase tracking-[0.08em]',
+  md: 'h-11 px-4 text-sm uppercase tracking-[0.08em]',
+  lg: 'h-12 px-5 text-sm uppercase tracking-[0.08em]',
+  icon: 'size-11',
+  iconSm: 'size-11',
   none: '',
 }
 
@@ -60,41 +60,7 @@ export function Button({
 
 /* ---------------- Surfaces ---------------- */
 
-export function Panel({ className, children }: { className?: string; children: ReactNode }) {
-  return <section className={cx('rounded-xl border border-edge bg-surface', className)}>{children}</section>
-}
-
-/** Filter chip / pressed toggle. */
-export function Toggle({
-  active,
-  onClick,
-  children,
-  className,
-}: {
-  active: boolean
-  onClick: () => void
-  children: ReactNode
-  className?: string
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={active}
-      onClick={onClick}
-      className={cx(
-        'inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-lg border px-3 text-sm font-medium transition-colors duration-150',
-        active
-          ? 'border-signal bg-signal text-signal-ink'
-          : 'border-edge bg-surface text-ink-2 hover:border-edge-strong hover:text-ink',
-        className,
-      )}
-    >
-      {children}
-    </button>
-  )
-}
-
-/** Segmented control (mode switches, theme picker). */
+/** Mode switch / theme picker — text tabs with a prompt on the active one. */
 export function Segmented<T extends string>({
   label,
   value,
@@ -107,7 +73,7 @@ export function Segmented<T extends string>({
   onChange: (value: T) => void
 }) {
   return (
-    <div role="group" aria-label={label} className="inline-flex flex-wrap gap-1 rounded-xl border border-edge bg-surface p-1">
+    <div role="group" aria-label={label} className="flex flex-wrap gap-x-5 gap-y-2">
       {options.map((option) => {
         const active = option.value === value
         return (
@@ -117,10 +83,13 @@ export function Segmented<T extends string>({
             aria-pressed={active}
             onClick={() => onChange(option.value)}
             className={cx(
-              'inline-flex h-9 items-center gap-1.5 rounded-lg px-3.5 text-sm font-medium transition-colors duration-150',
-              active ? 'bg-signal text-signal-ink' : 'text-ink-3 hover:bg-surface-2 hover:text-ink-2',
+              'inline-flex min-h-11 items-center gap-1.5 text-sm transition-colors duration-150',
+              active ? 'text-ink' : 'text-ink-3 hover:text-ink',
             )}
           >
+            <span aria-hidden="true" className="w-[1ch] shrink-0 select-none text-ink-3">
+              {active ? '>' : ''}
+            </span>
             {option.icon}
             {option.label}
           </button>
@@ -130,12 +99,26 @@ export function Segmented<T extends string>({
   )
 }
 
+/* ---------------- Terminal type ---------------- */
+
+/** Page headline with terminal prompt. */
+export function PageTitle({ children }: { children: ReactNode }) {
+  return (
+    <h1 className="text-3xl font-medium tracking-tight text-balance sm:text-4xl">
+      <span aria-hidden="true" className="mr-2 select-none text-ink-3">
+        &gt;
+      </span>
+      {children}
+    </h1>
+  )
+}
+
 /* ---------------- Small pieces ---------------- */
 
 /** Physical keycap for shortcut hints. */
 export function Kbd({ children }: { children: ReactNode }) {
   return (
-    <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded-[5px] border border-edge-strong bg-surface-2 px-1.5 font-mono text-[11px] leading-none text-ink-2">
+    <kbd className="inline-flex h-5 min-w-5 items-center justify-center border border-edge-strong bg-surface-2 px-1.5 font-mono text-[11px] leading-none text-ink-2">
       {children}
     </kbd>
   )
@@ -147,7 +130,7 @@ export function Led({ on, className }: { on: boolean; className?: string }) {
     <span
       aria-hidden="true"
       className={cx(
-        'inline-block size-2 shrink-0 rounded-full transition-[background-color,box-shadow] duration-150',
+        'inline-block size-2 shrink-0 transition-[background-color,box-shadow] duration-150',
         on ? 'bg-signal shadow-[0_0_10px_var(--signal)]' : 'bg-edge-strong',
         className,
       )}
@@ -161,7 +144,7 @@ export function Feedback({ state, className }: { state: FeedbackState; className
     <p
       aria-live="polite"
       className={cx(
-        'flex min-h-6 items-center justify-center gap-1.5 text-sm',
+        'flex min-h-6 items-center gap-1.5 text-sm',
         state === null && 'text-ink-3',
         state?.kind === 'ok' && 'text-signal-text',
         state?.kind === 'bad' && 'text-danger-text',
@@ -187,18 +170,18 @@ export function ScoreStrip({
 }) {
   const accuracy = total > 0 ? `${Math.round((score / total) * 100)}%` : '—'
   return (
-    <dl className={cx('flex items-center justify-center gap-5 text-xs text-ink-3', className)}>
+    <dl className={cx('flex items-center gap-5 font-mono text-sm text-ink-3', className)}>
       <div className="flex items-baseline gap-1.5">
-        <dt>Benar</dt>
-        <dd className="font-mono text-sm tabular-nums text-ink">{score}</dd>
+        <dt>benar:</dt>
+        <dd className="text-sm tabular-nums text-ink">{score}</dd>
       </div>
       <div className="flex items-baseline gap-1.5">
-        <dt>Soal</dt>
-        <dd className="font-mono text-sm tabular-nums text-ink">{total}</dd>
+        <dt>soal:</dt>
+        <dd className="text-sm tabular-nums text-ink">{total}</dd>
       </div>
       <div className="flex items-baseline gap-1.5">
-        <dt>Akurasi</dt>
-        <dd className="font-mono text-sm tabular-nums text-ink">{accuracy}</dd>
+        <dt>akurasi:</dt>
+        <dd className="text-sm tabular-nums text-ink">{accuracy}</dd>
       </div>
     </dl>
   )
@@ -230,30 +213,30 @@ export function InputPad({
           size="none"
           onClick={onDit}
           aria-label="Tambah dit"
-          className="h-16 flex-col gap-0.5 rounded-xl hover:border-signal/60 hover:text-signal-text"
+          className="h-16 flex-col gap-0.5"
         >
           <span className="font-mono text-3xl leading-none">·</span>
-          <span className="text-[10px] font-medium uppercase tracking-widest text-ink-3">dit</span>
+          <span className="text-sm normal-case tracking-normal text-ink-3">dit</span>
         </Button>
         <Button
           variant="secondary"
           size="none"
           onClick={onDah}
           aria-label="Tambah dah"
-          className="h-16 flex-col gap-0.5 rounded-xl hover:border-signal/60 hover:text-signal-text"
+          className="h-16 flex-col gap-0.5"
         >
           <span className="font-mono text-3xl leading-none">−</span>
-          <span className="text-[10px] font-medium uppercase tracking-widest text-ink-3">dah</span>
+          <span className="text-sm normal-case tracking-normal text-ink-3">dah</span>
         </Button>
       </div>
       <div className="grid grid-cols-3 gap-2.5">
-        <Button variant="secondary" size="none" onClick={onCommit} disabled={commitDisabled} className="h-11 rounded-xl text-sm">
+        <Button variant="secondary" size="none" onClick={onCommit} disabled={commitDisabled} className="h-11 text-sm uppercase tracking-[0.08em]">
           Commit
         </Button>
-        <Button variant="secondary" size="none" onClick={onSpace} className="h-11 rounded-xl text-sm">
+        <Button variant="secondary" size="none" onClick={onSpace} className="h-11 text-sm uppercase tracking-[0.08em]">
           Spasi
         </Button>
-        <Button variant="secondary" size="none" onClick={onBackspace} className="h-11 rounded-xl text-sm">
+        <Button variant="secondary" size="none" onClick={onBackspace} className="h-11 text-sm uppercase tracking-[0.08em]">
           Hapus
         </Button>
       </div>

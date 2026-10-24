@@ -156,8 +156,17 @@ export class MorseAudio {
   /** Play a single dit/dah — instant feedback for trainer input (plan §3.1). */
   beepNow(ditOrDah: 'dit' | 'dah', opts: MorseAudioOptions): void {
     const ctx = this.start()
+    const now = ctx.currentTime
+    this.scheduled = this.scheduled.filter((b) => b.endS > now)
     const dur = ditOrDah === 'dah' ? DAH_UNITS * ditMs(opts.wpm) : ditMs(opts.wpm)
-    scheduleBeep(ctx, { when: ctx.currentTime + LEAD_IN_S, durationMs: dur, freq: opts.freq, volume: opts.volume })
+    this.scheduled.push(
+      scheduleBeep(ctx, {
+        when: now + LEAD_IN_S,
+        durationMs: dur,
+        freq: opts.freq,
+        volume: opts.volume,
+      }),
+    )
   }
 
   /** Alias matching the trainer/dictionary call-site and tests. */
