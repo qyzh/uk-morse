@@ -242,6 +242,31 @@ describe('MorseAudio', () => {
     expect(fake.oscillators[0]!.startedAt[0]).toBeCloseTo(1.51, 10)
   })
 
+  it('tracks live beeps so stop() can cut them', () => {
+    const { fake, engine } = makeEngine()
+    engine.beepNow('dit', opts)
+    engine.stop()
+    expect(fake.oscillators[0]!.stoppedAt).toContain(1.5)
+  })
+
+  it('cuts rapid overlapping beeps on stop()', () => {
+    const { fake, engine } = makeEngine()
+    engine.beepNow('dit', opts)
+    engine.beepNow('dah', opts)
+    engine.beepNow('dit', opts)
+    expect(fake.oscillators).toHaveLength(3)
+    engine.stop()
+    expect(fake.oscillators.filter((osc) => osc.stoppedAt.includes(1.5))).toHaveLength(3)
+  })
+
+  it('a new playback stops live input beeps', async () => {
+    const { fake, engine } = makeEngine()
+    engine.beepNow('dah', opts)
+    const beep = fake.oscillators[0]!
+    await engine.playMorse('.-', opts)
+    expect(beep.stoppedAt).toContain(1.5)
+  })
+
   it('isPlaying is false before the first play', () => {
     const { engine } = makeEngine()
     expect(engine.isPlaying).toBe(false)

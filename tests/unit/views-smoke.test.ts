@@ -23,9 +23,9 @@ if (typeof globalThis.window !== 'undefined' && !('location' in globalThis.windo
 }
 
 const cases: Array<[string, () => unknown, string]> = [
-  ['App', App, 'Morse Trainer'],
-  ['Trainer', Trainer, 'Simbol aktif'],
-  ['Dictionary', Dictionary, 'Menampilkan'],
+  ['App', App, 'morse_trainer'],
+  ['Trainer', Trainer, 'simbol aktif'],
+  ['Dictionary', Dictionary, 'entri'],
   ['Encoder', Encoder, 'Putar morse'],
   ['Practice', Practice, 'Encode'],
   ['SettingsPanel', SettingsPanel, 'Kecepatan (WPM)'],
