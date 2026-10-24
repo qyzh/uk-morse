@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { MorseAudio, type MorseAudioOptions } from '../audio/morse-audio'
 import { useSettingsStore } from '../store/settingsStore'
 
@@ -48,6 +48,12 @@ export function useMorseAudio() {
   const stop = useCallback(() => {
     morseRef.current?.stop()
   }, [])
+
+  useEffect(() => {
+    if (muted) morseRef.current?.stop()
+  }, [muted])
+
+  useEffect(() => () => morseRef.current?.stop(), [])
 
   return { play, playChars, beep, stop, isPlaying: () => morseRef.current?.isPlaying ?? false }
 }

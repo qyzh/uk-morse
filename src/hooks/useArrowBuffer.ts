@@ -3,6 +3,42 @@ import { decodeSymbol } from '../core/decode'
 
 export type MorseSymbol = '.' | '-'
 
+export const TEXT_ENTRY_SELECTOR = [
+  'input',
+  'textarea',
+  'select',
+  '[contenteditable]:not([contenteditable="false"])',
+].join(', ')
+
+export const INTERACTIVE_SELECTOR = [
+  'a[href]',
+  'button',
+  'summary',
+  '[role="button"]',
+  '[role="link"]',
+  '[role="menuitem"]',
+  '[role="option"]',
+  '[role="tab"]',
+  '[role="checkbox"]',
+  '[role="radio"]',
+  '[role="switch"]',
+  '[tabindex]:not([tabindex="-1"])',
+].join(', ')
+
+function closestMatches(target: EventTarget | null | undefined, selector: string): boolean {
+  const el = target as { closest?: (selector: string) => unknown } | null | undefined
+  if (!el || typeof el.closest !== 'function') return false
+  return el.closest(selector) !== null
+}
+
+export function isTextEntryTarget(target: EventTarget | null | undefined): boolean {
+  return closestMatches(target, TEXT_ENTRY_SELECTOR)
+}
+
+export function isInteractiveTarget(target: EventTarget | null | undefined): boolean {
+  return closestMatches(target, INTERACTIVE_SELECTOR)
+}
+
 export type ArrowBufferOptions = {
   enabled?: boolean
   /** 0 disables auto-commit. */
@@ -39,6 +75,7 @@ export function useArrowBuffer(opts: ArrowBufferOptions = {}) {
 
   const push = useCallback(
     (symbol: MorseSymbol) => {
+      if (optsRef.current.enabled === false) return
       sync(bufferRef.current + symbol)
       optsRef.current.onBeep?.(symbol === '.' ? 'dit' : 'dah')
     },
@@ -46,6 +83,7 @@ export function useArrowBuffer(opts: ArrowBufferOptions = {}) {
   )
 
   const commit = useCallback(() => {
+    if (optsRef.current.enabled === false) return
     const raw = bufferRef.current
     if (raw.length === 0) return
     sync('')
@@ -53,11 +91,13 @@ export function useArrowBuffer(opts: ArrowBufferOptions = {}) {
   }, [sync])
 
   const enter = useCallback(() => {
+    if (optsRef.current.enabled === false) return
     commit()
     optsRef.current.onEnter?.(null)
   }, [commit])
 
   const backspace = useCallback(() => {
+    if (optsRef.current.enabled === false) return
     if (bufferRef.current.length > 0) sync(bufferRef.current.slice(0, -1))
     else optsRef.current.onBackspaceEmpty?.()
   }, [sync])
@@ -74,18 +114,15 @@ export function useArrowBuffer(opts: ArrowBufferOptions = {}) {
     return () => window.clearTimeout(id)
   }, [buffer, enabled, autoCommitMs, commit])
 
-  // keyboard input — ignored when the event starts in a form field
+  // keyboard input — text fields keep every key; other interactive elements
+  // keep Enter/Space so focused buttons and links still activate natively
   useEffect(() => {
     if (!enabled) return
     const handler = (e: KeyboardEvent) => {
       if (e.isComposing || e.defaultPrevented) return
       const target = e.target as HTMLElement | null
-      if (
-        target &&
-        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
-      ) {
-        return
-      }
+      if (isTextEntryTarget(target)) return
+      if ((e.key === ' ' || e.key === 'Enter') && isInteractiveTarget(target)) return
       if (e.key === 'ArrowLeft') {
         e.preventDefault()
         push('.')
