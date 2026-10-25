@@ -43,6 +43,8 @@ Signal is scarce: live buffer, the primary action, positive drill feedback. Surf
 
 One change at a time, tied to input (key, play, commit). Prefer duration already used (`150ms` color). No ambient motion: every change is tied to input. Respect the global reduced-motion rule (already in `index.css`).
 
+Arrival motion, nothing more: first paint plays one `boot-in` cascade (180ms, 6px); a view switch replays `view-in` (120ms, 3px). Both are `transform`/`opacity` only, run from the `--ease-out` token and `rise-in` keyframes in `index.css`, and there is no third audience for motion — no loops, no blinking caret, no scroll reveals in product views.
+
 ## Done when
 
 A redesigned surface is done when all of these hold:

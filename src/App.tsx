@@ -76,7 +76,7 @@ export default function App() {
         Langsung ke konten
       </a>
 
-      <header className="sticky top-0 z-20 border-b border-edge bg-bg/90 backdrop-blur">
+      <header className="boot-in sticky top-0 z-20 border-b border-edge bg-bg/90 backdrop-blur">
         <PlusMark className="-bottom-2.25 -left-1.25 hidden md:block" />
         <PlusMark className="-bottom-2.25 -right-1.25 hidden md:block" />
         <div className="flex h-14 items-center gap-4 px-4 md:px-8 lg:gap-6">
@@ -133,16 +133,18 @@ export default function App() {
       </header>
 
       <main id="konten" tabIndex={-1} className="w-full flex-1 px-4 py-8 pb-28 outline-none md:px-8 md:py-12 pointer-fine:md:pb-20 pointer-coarse:md:pb-28">
-        {view === 'trainer' && (
-          <div className="space-y-12">
-            <Trainer />
-            <Dictionary />
-          </div>
-        )}
-        {view === 'dictionary' && <Dictionary standalone />}
-        {view === 'encoder' && <Encoder />}
-        {view === 'practice' && <Practice />}
-        {view === 'settings' && <SettingsPanel />}
+        <div key={view} className="view-in">
+          {view === 'trainer' && (
+            <div className="space-y-12">
+              <Trainer />
+              <Dictionary />
+            </div>
+          )}
+          {view === 'dictionary' && <Dictionary standalone />}
+          {view === 'encoder' && <Encoder />}
+          {view === 'practice' && <Practice />}
+          {view === 'settings' && <SettingsPanel />}
+        </div>
       </main>
 
       <nav

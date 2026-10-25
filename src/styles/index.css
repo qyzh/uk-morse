@@ -71,6 +71,10 @@
 
   /* Focus ring — matches primary text for visibility on dark bg */
   --ring: #f5f5f5;
+
+  /* Motion — shared UI curve for entrances (settles, never starts slow).
+     Light theme needs no override: easings carry no color. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
 }
 
 /* Light theme — inverted anchors, same token names. */
@@ -190,4 +194,30 @@ html.light {
 
 @utility glow-signal {
   text-shadow: 0 0 18px var(--signal-glow);
+}
+
+/**
+ * Arrival motion — one boot cascade on first paint, one per view switch.
+ * transform/opacity only, replays on remount, and the global reduced-motion
+ * rule above collapses both to instant end states. Start-state lives only
+ * inside the keyframes, so unsupported browsers just show the content.
+ *
+ * No loops, ever: wordmark caret stays static (Docs/DESIGN.md Motion).
+ */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--rise-in, 6px));
+  }
+}
+
+/* First paint (shell chrome): slightly fuller beat — load is occasional. */
+@utility boot-in {
+  animation: rise-in 180ms var(--ease-out) both;
+}
+
+/* View switch (frequent input): near-imperceptible. */
+@utility view-in {
+  --rise-in: 3px;
+  animation: rise-in 120ms var(--ease-out) both;
 }
