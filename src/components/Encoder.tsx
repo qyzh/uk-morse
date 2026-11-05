@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import { encodeText } from '../core/encode'
-import { MORSE_MAP } from '../core/morse-data'
 import { useMorseAudio } from '../hooks/useMorseAudio'
 import { AlertIcon, CheckIcon, CopyIcon, PlayIcon } from './icons'
 import { Button, PageTitle } from './ui'
@@ -13,8 +12,7 @@ export function Encoder() {
 
   useEffect(() => () => window.clearTimeout(copyTimer.current), [])
 
-  const morse = encodeText(text)
-  const unknown = [...new Set([...text.toUpperCase()].filter((ch) => ch !== ' ' && !(ch in MORSE_MAP)))]
+  const { morse, unsupported } = encodeText(text)
 
   const copy = async () => {
     try {
@@ -50,12 +48,12 @@ export function Encoder() {
           placeholder="Contoh: SOS dari kapal"
           className="w-full resize-y border-0 border-b border-edge-strong bg-transparent py-2 text-base text-ink transition-colors duration-150 placeholder:text-ink-3 hover:border-ink-3 focus:border-ink-3"
         />
-        {unknown.length > 0 && (
+        {unsupported.length > 0 && (
           <p className="mt-3 flex items-start gap-2 border-l-2 border-warn/60 bg-warn/5 py-2 pl-3 pr-2 text-base text-warn">
             <AlertIcon className="mt-0.5 size-4 shrink-0" />
             <span>
               Belum didukung dan diabaikan:{' '}
-              <span className="font-mono">{unknown.join(' ')}</span>
+              <span className="font-mono">{unsupported.join(' ')}</span>
             </span>
           </p>
         )}

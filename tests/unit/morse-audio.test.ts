@@ -221,20 +221,6 @@ describe('MorseAudio', () => {
     expect(cut.length).toBe(first.length)
   })
 
-  it('playCharSeq encodes plain text and schedules it', async () => {
-    const { fake, engine } = makeEngine()
-    // 'E E' → '. / .' → one dit per letter, word gap in between
-    await expect(engine.playCharSeq('E E', opts)).resolves.toBe(
-      Math.round(morseDurationMs('. / .', 15)),
-    )
-    expect(fake.oscillators).toHaveLength(2)
-    // 'sos' → '... --- ...' → 9 tones
-    await expect(engine.playCharSeq('sos', opts)).resolves.toBe(
-      Math.round(morseDurationMs('... --- ...', 15)),
-    )
-    expect(fake.oscillators).toHaveLength(2 + 9)
-  })
-
   it('beepNow schedules a tone starting in the near future', async () => {
     const { fake, engine } = makeEngine()
     engine.beepNow('dit', opts)

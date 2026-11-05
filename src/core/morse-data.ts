@@ -4,7 +4,7 @@
  * Ambiguity rule: some prosigns share their morse string with punctuation
  * ('AR'/'.-.-.' = '+', 'BT'/'-...-' = '=', 'KN'/'-.--.' = '('). CHAR_MAP keeps
  * the punctuation char (better text round-trips); the colliding prosign stays
- * reachable via MORSE_MAP/encodeChar, and both entries remain in MORSE_LIST.
+ * reachable via MORSE_MAP, and both entries remain in MORSE_LIST.
  */
 
 export type MorseCategory = 'letter' | 'number' | 'punctuation' | 'prosign'
@@ -89,7 +89,7 @@ export const CHAR_MAP: Record<string, string> = {}
 for (const [char, morse] of Object.entries(MORSE_MAP)) {
   // First wins: prosigns are declared after punctuation, so punctuation
   // keeps the reverse mapping ('-...-' -> '='). Colliding prosigns stay
-  // reachable via MORSE_MAP/encodeChar; unique prosigns (SOS, SK, HH) map fine.
+  // reachable via MORSE_MAP; unique prosigns (SOS, SK, HH) map fine.
   if (CHAR_MAP[morse] === undefined) CHAR_MAP[morse] = char
 }
 
@@ -129,9 +129,6 @@ export const MORSE_LIST: MorseEntry[] = (
     { char: 'HH', category: 'prosign' as const, keywords: ['error', 'correction'] },
   ] satisfies Omit<MorseEntry, 'morse'>[]
 ).map((entry) => ({ ...entry, morse: MORSE_MAP[entry.char]! }))
-
-/** Longest morse string in the data — bound for longest-match decoding. */
-export const MAX_MORSE_LENGTH = Math.max(...Object.keys(CHAR_MAP).map((k) => k.length))
 
 /** Accept common dit/dah spellings, canonicalize to '.' and '-'. */
 export function normalizeMorse(morse: string): string {

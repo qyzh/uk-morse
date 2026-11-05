@@ -30,12 +30,6 @@ export function useMorseAudio() {
     [muted, options, getEngine],
   )
 
-  /** Encode plain text ("hello world") and schedule it. */
-  const playChars = useCallback(
-    (text: string) => getEngine().playCharSeq(text, { ...options, muted: muted || text.length === 0 }),
-    [muted, options, getEngine],
-  )
-
   /** Instant dit/dah feedback for trainer input. */
   const beep = useCallback(
     (ditOrDah: 'dit' | 'dah') => {
@@ -55,5 +49,5 @@ export function useMorseAudio() {
 
   useEffect(() => () => morseRef.current?.stop(), [])
 
-  return { play, playChars, beep, stop, isPlaying: () => morseRef.current?.isPlaying ?? false }
+  return { play, beep, stop, isPlaying: () => morseRef.current?.isPlaying ?? false }
 }

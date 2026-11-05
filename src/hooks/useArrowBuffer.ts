@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { decodeSymbol } from '../core/decode'
+import { decodeCode } from '../core/decode'
+import type { MorseEntry } from '../core/morse-data'
 
 export type MorseSymbol = '.' | '-'
 
@@ -44,7 +45,8 @@ export type ArrowBufferOptions = {
   /** 0 disables auto-commit. */
   autoCommitMs?: number
   onBeep?: (kind: 'dit' | 'dah') => void
-  onCommit?: (char: string, raw: string) => void
+  /** Called with the decoded entry, or null for unknown input. */
+  onCommit?: (entry: MorseEntry | null) => void
   onEnter?: (charFromBuffer: string | null) => void
   onBackspaceEmpty?: () => void
   onReset?: () => void
@@ -87,7 +89,7 @@ export function useArrowBuffer(opts: ArrowBufferOptions = {}) {
     const raw = bufferRef.current
     if (raw.length === 0) return
     sync('')
-    optsRef.current.onCommit?.(decodeSymbol(raw), raw)
+    optsRef.current.onCommit?.(decodeCode(raw))
   }, [sync])
 
   const enter = useCallback(() => {

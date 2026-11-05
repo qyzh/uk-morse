@@ -4,6 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 @AGENTS.md
 
+Domain terms (entry, code, element, transcript, drill, round) are defined in `CONTEXT.md`. Use them in code and docs.
+
 ## Commands
 
 ```bash
@@ -30,7 +32,9 @@ Client-only React 19 SPA (Vite, Tailwind 4, Zustand) with no backend, deployed a
 Dependencies point one way: `core` ← `audio` ← `hooks` ← `components`. `src/core` is pure and framework-free, which is why the logic tests run in node.
 
 - **Morse data:** `core/morse-data.ts` holds the source tables. `MORSE_MAP` is char → morse, and `CHAR_MAP` is the reverse. Some prosigns share a code with punctuation (`AR` / `+`, `BT` / `=`, `KN` / `(`). `CHAR_MAP` deliberately keeps the punctuation char, so decoding those codes never yields the prosign.
-- **Morse string format:** `.`/`-` elements, a space between letters, `/` between words. `decodeText`, `encodeText` and `morseElements` all share it. `decodeSymbol` looks up one token; `decodeStream` does greedy longest-match on unseparated input.
+- **Morse string format:** `.`/`-` elements, a space between letters, `/` between words. `encodeText` and `morseElements` share it.
+- **Translation:** failure is reported apart from output, never as a character, because `?` is itself an entry. `decodeCode` returns a `MorseEntry` or `null`; `encodeText` returns `{ morse, unsupported }`.
+- **Transcript:** `core/transcript.ts` keeps the Trainer's output as entries and word gaps rather than a string, so a prosign replays as one code and Backspace removes it whole.
 - **Timing and audio:** `core/timing.ts` implements PARIS timing (dit = 1200 / WPM ms). `audio/morse-audio.ts` turns that into `TimingEvent`s and schedules Web Audio oscillators ahead of time rather than using JS timers per tone. `MorseAudio` takes an injectable `AudioContext` factory so tests can fake it, and creates the context lazily to satisfy autoplay policy.
 - **`useMorseAudio`:** connects the engine to settings. Each view that calls it gets its own `MorseAudio` instance, so `stop()` only affects that view.
 - **`useArrowBuffer`:** the Morse input model. `←` dit, `→` dah, Space commit, Enter word break, Backspace delete, Esc reset. It listens on `window` and also returns the same actions for the touch pad (`InputPad`), so keyboard and touch stay identical. The buffer lives in a ref and handlers mutate it directly, keeping side effects out of `setState` updaters so StrictMode can't double-commit. `Practice` runs two instances, gated by `enabled`; only one may be enabled at a time. The text-entry and interactive target guards exist so fields and focused buttons keep their keys (`tests/unit/keyboard-guard.test.ts`).

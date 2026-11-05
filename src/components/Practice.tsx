@@ -51,12 +51,12 @@ export function Practice() {
     enabled: mode === 'encode' && !encLocked,
     autoCommitMs,
     onBeep: beep,
-    onCommit: (char) => {
+    onCommit: (entry) => {
       if (encLockedRef.current) return
       encLockedRef.current = true
       setEncLocked(true)
       setEncTotal((t) => t + 1)
-      if (char === encTarget.char) {
+      if (entry?.char === encTarget.char) {
         setEncScore((s) => s + 1)
         setEncFeedback({ kind: 'ok', text: 'Benar!' })
       } else {
@@ -155,9 +155,9 @@ export function Practice() {
     enabled: mode === 'speed' && speedActive,
     autoCommitMs,
     onBeep: beep,
-    onCommit: (char) => {
+    onCommit: (entry) => {
       setSpeedTotal((t) => t + 1)
-      if (char === speedTarget.char) setSpeedScore((s) => s + 1)
+      if (entry?.char === speedTarget.char) setSpeedScore((s) => s + 1)
       setSpeedTarget(randomEntry())
     },
   })

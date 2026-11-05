@@ -8,18 +8,6 @@ export function ditMs(wpm: number): number {
   return 1200 / wpm
 }
 
-export function dahMs(wpm: number): number {
-  return DAH_UNITS * ditMs(wpm)
-}
-
-export function letterGapMs(wpm: number): number {
-  return LETTER_GAP_UNITS * ditMs(wpm)
-}
-
-export function wordGapMs(wpm: number): number {
-  return WORD_GAP_UNITS * ditMs(wpm)
-}
-
 export type MorseElement = {
   kind: 'dit' | 'dah'
   /** Silence before this element, in dit units (0 for the first element). */

@@ -5,9 +5,6 @@ import {
   LETTER_GAP_UNITS,
   WORD_GAP_UNITS,
   ditMs,
-  dahMs,
-  letterGapMs,
-  wordGapMs,
   morseElements,
   morseDurationMs,
 } from '../../src/core/timing'
@@ -22,9 +19,7 @@ describe('WPM timing (PARIS standard)', () => {
 
   it('derives ms from WPM', () => {
     expect(ditMs(12)).toBe(100)
-    expect(dahMs(12)).toBe(300)
-    expect(letterGapMs(24)).toBe(150)
-    expect(wordGapMs(24)).toBe(350)
+    expect(ditMs(24)).toBe(50)
   })
 })
 

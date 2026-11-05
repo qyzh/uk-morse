@@ -1,25 +1,23 @@
 import { MORSE_MAP } from './morse-data'
 
-export const UNKNOWN = '?'
-
-/** Single char (case-insensitive) → morse string, or null when unmapped. */
-export function encodeChar(ch: string): string | null {
-  if (ch === ' ') return '/'
-  return MORSE_MAP[ch.toUpperCase()] ?? null
+export type Encoded = {
+  /** Codes separated by ' ', words by ' / '. */
+  morse: string
+  /** Characters with no entry, left out of `morse`. First-seen order, no repeats. */
+  unsupported: string[]
 }
 
-/** Word → dit/dah tokens separated by single spaces; unknown chars → '?'. */
-export function encodeWord(word: string, unknown = UNKNOWN): string {
-  return [...word]
-    .map((ch) => MORSE_MAP[ch.toUpperCase()] ?? unknown)
-    .join(' ')
-}
-
-/** Text → morse. Words separated by ' / ' (plan spec: space → '/'). */
-export function encodeText(text: string, unknown = UNKNOWN): string {
-  return text
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((word) => encodeWord(word, unknown))
-    .join(' / ')
+export function encodeText(text: string): Encoded {
+  const unsupported = new Set<string>()
+  const words: string[] = []
+  for (const word of text.split(/\s+/)) {
+    const codes: string[] = []
+    for (const ch of word) {
+      const code = MORSE_MAP[ch.toUpperCase()]
+      if (code === undefined) unsupported.add(ch)
+      else codes.push(code)
+    }
+    if (codes.length > 0) words.push(codes.join(' '))
+  }
+  return { morse: words.join(' / '), unsupported: [...unsupported] }
 }

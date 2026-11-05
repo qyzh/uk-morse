@@ -1,117 +1,47 @@
 import { describe, expect, it } from 'vitest'
-import {
-  decodeSymbol,
-  decodeStream,
-  decodeWord,
-  decodeText,
-  UNKNOWN,
-} from '../../src/core/decode'
-import { encodeText } from '../../src/core/encode'
+import { decodeCode } from '../../src/core/decode'
+import { MORSE_LIST } from '../../src/core/morse-data'
 
-describe('decodeSymbol', () => {
-  it('decodes letters, numbers and punctuation', () => {
-    expect(decodeSymbol('.-')).toBe('A')
-    expect(decodeSymbol('-...')).toBe('B')
-    expect(decodeSymbol('-----')).toBe('0')
-    expect(decodeSymbol('.-.-.-')).toBe('.')
-    expect(decodeSymbol('.--.-.')).toBe('@')
+describe('decodeCode', () => {
+  it('finds letters, numbers and punctuation', () => {
+    expect(decodeCode('.-')?.char).toBe('A')
+    expect(decodeCode('-...')?.char).toBe('B')
+    expect(decodeCode('-----')?.char).toBe('0')
+    expect(decodeCode('.-.-.-')?.char).toBe('.')
+    expect(decodeCode('.--.-.')?.char).toBe('@')
   })
 
-  it('decodes prosigns from single tokens', () => {
-    expect(decodeSymbol('...---...')).toBe('SOS')
+  it('finds the question mark entry rather than reporting unknown input', () => {
+    expect(decodeCode('..--..')).toMatchObject({
+      char: '?',
+      morse: '..--..',
+      category: 'punctuation',
+    })
   })
 
-  it('resolves char/prosign collisions toward the punctuation char', () => {
-    // 'AR' and '+' share '.-.-.', 'BT' and '=' share '-...-'
-    expect(decodeSymbol('.-.-.')).toBe('+')
-    expect(decodeSymbol('-...-')).toBe('=')
+  it('keeps a prosign as one entry', () => {
+    expect(decodeCode('...---...')).toMatchObject({ char: 'SOS', category: 'prosign' })
   })
 
-  it('trims surrounding whitespace', () => {
-    expect(decodeSymbol(' .- ')).toBe('A')
+  it('resolves prosign collisions toward the punctuation entry', () => {
+    expect(decodeCode('.-.-.')?.char).toBe('+')
+    expect(decodeCode('-...-')?.char).toBe('=')
   })
 
-  it('maps unknown tokens to ?', () => {
-    expect(decodeSymbol('.-.-')).toBe(UNKNOWN)
-    expect(decodeSymbol('??')).toBe(UNKNOWN)
-  })
-})
-
-describe('decodeStream (greedy longest-match)', () => {
-  it('decodes unseparated letters', () => {
-    // C A concatenated: '-.-..-' has no 6-symbol entry, greedy falls back to C+A
-    expect(decodeStream('-.-..-')).toBe('CA')
-    expect(decodeStream('..--..')).toBe('?') // itself a full entry
+  it('accepts surrounding whitespace and unicode dit/dah', () => {
+    expect(decodeCode(' .- ')?.char).toBe('A')
+    expect(decodeCode('·−')?.char).toBe('A')
   })
 
-  it('prefers the longest match: 8 dots = HH prosign', () => {
-    expect(decodeStream('........')).toBe('HH')
-    expect(decodeStream('..')).toBe('I')
+  it('returns null for unknown input', () => {
+    expect(decodeCode('.-.-')).toBeNull()
+    expect(decodeCode('......')).toBeNull()
+    expect(decodeCode('')).toBeNull()
   })
 
-  it('decodes the SOS prosign from a raw stream', () => {
-    expect(decodeStream('...---...')).toBe('SOS')
-  })
-
-  it('decodes SK "...-.-" greedily, not S+O prefixes', () => {
-    expect(decodeStream('...-.-')).toBe('SK')
-  })
-
-  it('greedy longest-match reparses letter-wise streams differently', () => {
-    // '.-' '-...' '...-..' letter-wise is ABE?F; greedy eats P/F/D instead
-    expect(decodeStream('.--...-.-..')).toBe('PFD')
-  })
-
-  it('marks junk positions with ? and moves on', () => {
-    // 'x' matches nothing at any length -> '?', then '.-' -> 'A'
-    expect(decodeStream('x.-')).toBe('?A')
-  })
-
-  it('returns empty for empty input', () => {
-    expect(decodeStream('')).toBe('')
-  })
-})
-
-describe('decodeWord', () => {
-  it('joins symbol tokens', () => {
-    expect(decodeWord('... --- ...')).toBe('SOS')
-    expect(decodeWord('.- -...')).toBe('AB')
-  })
-
-  it('single-token words go through the stream decoder', () => {
-    expect(decodeWord('...---...')).toBe('SOS')
-    expect(decodeWord('...---...')).toBe(decodeStream('...---...'))
-  })
-
-  it('keeps unknown tokens as ?', () => {
-    expect(decodeWord('.- ?')).toBe('A' + UNKNOWN)
-  })
-
-  it('returns empty for empty input', () => {
-    expect(decodeWord('')).toBe('')
-    expect(decodeWord('   ')).toBe('')
-  })
-})
-
-describe('decodeText', () => {
-  it('splits on / inside messages, joins words with spaces', () => {
-    expect(decodeText('... --- ... / ... --- ...')).toBe('SOS SOS')
-    expect(decodeText(' .- -... / -.-. -.. ')).toBe('AB CD')
-  })
-
-  it('returns empty for empty and separator-only input', () => {
-    expect(decodeText('')).toBe('')
-    expect(decodeText('/ /')).toBe('')
-  })
-
-  it('is the inverse of encodeText for encodable text', () => {
-    const text = 'HI PARIS 42 ?!'
-    expect(decodeText(encodeText(text))).toBe(text)
-  })
-
-  it('IS invertible on collision patterns (punctuation wins)', () => {
-    // encodeText('=') -> '-...-' -> '='; prosign stays on MORSE_LIST/MORSE_MAP
-    expect(decodeText(encodeText('='))).toBe('=')
-    expect(decodeText(encodeText('+'))).toBe('+')
+  it('reaches an entry for every code in the table', () => {
+    for (const entry of MORSE_LIST) {
+      expect(decodeCode(entry.morse)?.morse).toBe(entry.morse)
+    }
   })
 })

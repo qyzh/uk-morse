@@ -74,5 +74,3 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
     },
   ),
 )
-
-export const useSettings = useSettingsStore

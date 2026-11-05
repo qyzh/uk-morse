@@ -1,6 +1,5 @@
 /** Web Audio morse scheduler (PLAN.md §3.4, §7.5). */
 import { DAH_UNITS, ditMs, morseDurationMs, morseElements } from '../core/timing'
-import { encodeText } from '../core/encode'
 
 export type AudioContextFactory = () => AudioContext
 
@@ -146,11 +145,6 @@ export class MorseAudio {
       this.endTimer = null
     }, timelineMs + LEAD_IN_S * 1000)
     return timelineMs
-  }
-
-  /** Convenience: encode plain text ("hello world") then schedule it. */
-  async playCharSeq(text: string, opts: MorseAudioOptions): Promise<number> {
-    return this.play(encodeText(text), opts)
   }
 
   /** Play a single dit/dah — instant feedback for trainer input (plan §3.1). */

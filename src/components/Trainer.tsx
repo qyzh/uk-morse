@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { decodeSymbol } from '../core/decode'
+import { decodeCode } from '../core/decode'
+import { WORD_GAP, transcriptMorse, transcriptText } from '../core/transcript'
+import type { Transcript } from '../core/transcript'
 import { useArrowBuffer } from '../hooks/useArrowBuffer'
 import { useMorseAudio } from '../hooks/useMorseAudio'
 import { useSettingsStore } from '../store/settingsStore'
@@ -17,8 +19,8 @@ const SHORTCUTS: Array<[string, string]> = [
 
 export function Trainer() {
   const autoCommitMs = useSettingsStore((s) => s.autoCommitMs)
-  const { playChars, beep } = useMorseAudio()
-  const [output, setOutput] = useState('')
+  const { play, beep } = useMorseAudio()
+  const [transcript, setTranscript] = useState<Transcript>([])
   const [lit, setLit] = useState(false)
   const [invalid, setInvalid] = useState(false)
   const flashTimer = useRef<number | undefined>(undefined)
@@ -45,22 +47,23 @@ export function Trainer() {
       beep(kind)
       flash()
     },
-    onCommit: (char) => {
-      if (char === '?') {
+    onCommit: (entry) => {
+      if (entry === null) {
         setInvalid(true)
         window.clearTimeout(invalidTimer.current)
         invalidTimer.current = window.setTimeout(() => setInvalid(false), 1400)
         return
       }
       setInvalid(false)
-      setOutput((o) => o + char)
+      setTranscript((t) => [...t, entry])
     },
-    onEnter: () => setOutput((o) => o + ' '),
-    onBackspaceEmpty: () => setOutput((o) => o.slice(0, -1)),
+    onEnter: () => setTranscript((t) => [...t, WORD_GAP]),
+    onBackspaceEmpty: () => setTranscript((t) => t.slice(0, -1)),
   })
 
-  const preview = buffer ? decodeSymbol(buffer) : null
-  const empty = output.length === 0
+  const preview = buffer ? decodeCode(buffer) : null
+  const empty = transcript.length === 0
+  const nothingToPlay = transcript.every((item) => item === WORD_GAP)
 
   return (
     <div className="space-y-10">
@@ -100,13 +103,13 @@ export function Trainer() {
         </p>
 
         <div className="mt-2 flex min-h-7 items-center">
-          {preview && (
+          {buffer && (
             <span className="inline-flex items-center gap-2 font-mono text-sm">
               <span className="text-ink-3">=</span>
-              {preview === '?' ? (
-                <span className="text-danger-text">tidak dikenal</span>
+              {preview ? (
+                <span className="text-ink">{preview.char}</span>
               ) : (
-                <span className="text-ink">{preview}</span>
+                <span className="text-danger-text">tidak dikenal</span>
               )}
             </span>
           )}
@@ -140,10 +143,10 @@ export function Trainer() {
             <span>hasil decode</span>
           </h2>
           <div className="flex items-center gap-2">
-            <Button size="sm" variant="ghost" onClick={() => setOutput('')} disabled={empty}>
+            <Button size="sm" variant="ghost" onClick={() => setTranscript([])} disabled={empty}>
               Bersihkan
             </Button>
-            <Button size="sm" variant="primary" onClick={() => playChars(output)} disabled={empty}>
+            <Button size="sm" variant="primary" onClick={() => play(transcriptMorse(transcript))} disabled={nothingToPlay}>
               <PlayIcon className="size-3.5" />
               Putar
             </Button>
@@ -153,7 +156,7 @@ export function Trainer() {
           {empty ? (
             <p className="text-base text-ink-3">Teks hasil decode muncul di sini.</p>
           ) : (
-            <p className="whitespace-pre-wrap wrap-break-word font-mono text-2xl sm:text-3xl">{output}</p>
+            <p className="whitespace-pre-wrap wrap-break-word font-mono text-2xl sm:text-3xl">{transcriptText(transcript)}</p>
           )}
         </div>
       </section>

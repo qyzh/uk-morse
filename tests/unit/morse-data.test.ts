@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
   CHAR_MAP,
-  MAX_MORSE_LENGTH,
   MORSE_LIST,
   MORSE_MAP,
   normalizeMorse,
@@ -50,7 +49,4 @@ describe('morse-data', () => {
     expect(normalizeMorse('·−·−·−')).toBe('.-.-.-')
   })
 
-  it('bounds the longest-match window at the longest entry', () => {
-    expect(MAX_MORSE_LENGTH).toBe(9) // '...---...' SOS
-  })
 })
