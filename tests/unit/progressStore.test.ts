@@ -30,6 +30,15 @@ describe('progress store', () => {
     expect(now.drillsCorrect).toBe(2)
   })
 
+  it('keeps only the best board score and says when it was beaten', () => {
+    const s = useProgressStore.getState()
+    expect(s.recordBoardScore(40)).toEqual({ isRecord: true })
+    expect(s.recordBoardScore(40)).toEqual({ isRecord: false })
+    expect(s.recordBoardScore(10)).toEqual({ isRecord: false })
+    expect(useProgressStore.getState().bestBoardScore).toBe(40)
+    expect(persisted().state.bestBoardScore).toBe(40)
+  })
+
   it('keeps only the best streak', () => {
     const s = useProgressStore.getState()
     s.recordStreak(5)

@@ -23,9 +23,11 @@ export type ProgressState = {
   drillsCorrect: number
   drillsTotal: number
   bestStreak: number
+  bestBoardScore: number
   recordDrill: (correct: boolean) => void
   recordStreak: (streak: number) => void
   recordSpeedTest: (durationS: SpeedDuration, chars: number) => SpeedResult
+  recordBoardScore: (score: number) => { isRecord: boolean }
   reset: () => void
 }
 
@@ -36,6 +38,7 @@ export const useProgressStore = create<ProgressState>()(
       drillsCorrect: 0,
       drillsTotal: 0,
       bestStreak: 0,
+      bestBoardScore: 0,
 
       recordDrill: (correct) =>
         set((s) => ({
@@ -54,17 +57,30 @@ export const useProgressStore = create<ProgressState>()(
         return { wpm, best: Math.max(wpm, previousBest), isRecord }
       },
 
+      recordBoardScore: (score) => {
+        const isRecord = score > get().bestBoardScore
+        if (isRecord) set({ bestBoardScore: score })
+        return { isRecord }
+      },
+
       reset: () =>
-        set({ bestWpm: { 30: 0, 60: 0, 120: 0 }, drillsCorrect: 0, drillsTotal: 0, bestStreak: 0 }),
+        set({
+          bestWpm: { 30: 0, 60: 0, 120: 0 },
+          drillsCorrect: 0,
+          drillsTotal: 0,
+          bestStreak: 0,
+          bestBoardScore: 0,
+        }),
     }),
     {
       name: STORAGE_KEY,
       version: 1,
-      partialize: ({ bestWpm, drillsCorrect, drillsTotal, bestStreak }) => ({
+      partialize: ({ bestWpm, drillsCorrect, drillsTotal, bestStreak, bestBoardScore }) => ({
         bestWpm,
         drillsCorrect,
         drillsTotal,
         bestStreak,
+        bestBoardScore,
       }),
     },
   ),
