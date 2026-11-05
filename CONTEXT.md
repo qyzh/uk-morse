@@ -69,5 +69,21 @@ The drills and speed test from entering the Latihan view until leaving it. Its s
 What outlives a practice session: lifetime drill tally, best streak, and best WPM per speed-test duration.
 _Avoid_: stats, history
 
+**Board**:
+The Morse tree of the 26 letters on the home view, with a lamp per letter and every route starting at the antenna.
+_Avoid_: map, chart
+
+**Route**:
+The lamps from the antenna to an entry, which spell out its code.
+_Avoid_: path
+
+**Run**:
+One board game, from starting it until the last life is lost. Each target in it is a round.
+_Avoid_: session, match
+
+**Fuse**:
+The time left in a round of a run, counted down in segments. It's reset by each new target.
+_Avoid_: timer
+
 **Streak**:
 Consecutive correct drill answers, across both drills.

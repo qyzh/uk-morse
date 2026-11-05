@@ -39,15 +39,16 @@ Dependencies point one way: `core` ← `audio`, `input` ← `practice` ← `comp
 - **`useMorseAudio`:** owns the app's single `MorseAudio`, so two sounds can't overlap: new playback replaces what's sounding, and a key-press beep cuts playback. Mute lives in the engine, and the hook stops audio when a view unmounts or mute turns on.
 - **Morse input:** `input/morse-input.ts` is the keying model. `←` dit, `→` dah, Space commit, Enter word gap, Backspace delete, Esc reset. It's framework-free, so whole key sequences run in tests, and the pad calls the same actions as the keyboard. `useMorseKeyboard` is the thin adapter that connects it to `window` and React. A gate controls it: `open`, `held` (keys swallowed and ignored) or `closed` (keys left to the page). Moving off `open` drops the buffer. Text fields keep every key, and focused controls keep Space and Enter unless a letter is mid-way through being keyed.
 - **Practice session:** `practice/practice-session.ts` owns the Encode and Decode drills and the speed test: targets, scoring, the 450ms end of a round, the countdown, mode switching and recording progress. `Practice.tsx` only renders its state. It holds one `MorseInput` and derives the gate from its state, so don't set the gate from a view.
+- **Home view:** `practice/board-game.ts` is the game the app opens on, built like the practice session: it owns runs, levels, the fuse and scoring, and `Home.tsx` only renders it. It judges each element as it's keyed through `input.subscribe`, so a run has no commits. Between runs the keys are free and Enter starts a run. `core/morse-board.ts` holds only letter positions; codes, wires and lamp shapes derive from `MORSE_MAP`, so a position can't disagree with a code.
 - **State:** `store/settingsStore.ts` persists to `morse-app:v1`. Setters clamp their values. When adding a setting, also add it to `partialize`, or it won't persist. `store/progressStore.ts` persists progress to `morse-app:progress:v1`. Session scores aren't persisted.
-- **Routing:** hash-based and hand-rolled in `App.tsx` (`#/trainer`, `#/dictionary`, ...), driven by the `VIEWS` array. There is no router dependency. `key={view}` on the view wrapper remounts the view and replays the `view-in` animation, so view-local state doesn't survive navigation.
+- **Routing:** hash-based and hand-rolled in `App.tsx` (`#/`, `#/trainer`, `#/dictionary`, ...), driven by the `VIEWS` array. `#/` and unknown hashes are the home view, which the wordmark links to and the nav doesn't list. There is no router dependency. `key={view}` on the view wrapper remounts the view and replays the `view-in` animation, so view-local state doesn't survive navigation.
 - **PWA:** `public/sw.js` is hand-written and registers in production builds only. Bump `VERSION` when changing its caching. `public/_headers` sets the Cloudflare Pages cache policy.
 
 ## Testing
 
 Vitest runs in node with no DOM. `tests/setup.ts` stubs `localStorage` and `window`. `views-smoke.test.ts` renders each view with `react-dom/server`, so effects don't run there. Timer-driven rules are tested through their module's interface with fake timers (`morse-input.test.ts`, `practice-session.test.ts`). Audio is tested with `fake-audio.ts` standing in for `AudioContext`. The smoke tests assert on Indonesian UI strings, so they break when copy changes.
 
-`tests/unit/contrast.test.ts` parses `src/styles/index.css` and enforces WCAG contrast on the color tokens. It expects 6-digit hex values inside the `:root` and `html.light` token blocks.
+`tests/unit/contrast.test.ts` parses `src/styles/index.css` and enforces WCAG contrast on the color tokens. It expects 6-digit hex values inside the `:root` (paper) and `html.dark` (night) token blocks.
 
 ## Versioning
 
@@ -56,4 +57,4 @@ The version lives only in `package.json`, and there are no tags or changelog. Bu
 ## Conventions
 
 - Product UI copy is Indonesian. Code and comments are English.
-- The `Docs/DESIGN.md` rules are strict: one mono font, square controls, signal green only on live Morse, the primary action and positive feedback, and no ambient motion.
+- The `Docs/DESIGN.md` rules are strict: one typewriter mono font, square controls, signal verdigris only on live Morse, the primary action and positive feedback, and no ambient motion. The home board has its own section there.
