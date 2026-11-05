@@ -1,67 +1,14 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   MorseAudio,
+  type MorseAudioOptions,
   morseToTimingEvents,
   scheduleBeep,
   scheduleMorse,
 } from '../../src/audio/morse-audio'
 import { morseDurationMs } from '../../src/core/timing'
+import { FakeAudioContext, asCtx } from './fake-audio'
 
-class FakeParam {
-  calls: { fn: string; value: number; at: number }[] = []
-  setValueAtTime(value: number, at: number): void {
-    this.calls.push({ fn: 'setValue', value, at })
-  }
-  linearRampToValueAtTime(value: number, at: number): void {
-    this.calls.push({ fn: 'ramp', value, at })
-  }
-}
-
-class FakeOscillator {
-  type = ''
-  frequency = new FakeParam()
-  startedAt: number[] = []
-  stoppedAt: number[] = []
-  connect = vi.fn((node: unknown) => node)
-  start(at?: number): void {
-    this.startedAt.push(at ?? 0)
-  }
-  stop(at?: number): void {
-    if (this.startedAt.length === 0) throw new Error('not started')
-    this.stoppedAt.push(at ?? 0)
-  }
-}
-
-class FakeGain {
-  gain = new FakeParam()
-  connect = vi.fn((node: unknown) => node)
-}
-
-class FakeAudioContext {
-  currentTime = 1.5
-  state = 'suspended'
-  destination = { id: 'dest' }
-  resumeCalls = 0
-  oscillators: FakeOscillator[] = []
-  gains: FakeGain[] = []
-  resume(): Promise<void> {
-    this.resumeCalls++
-    this.state = 'running'
-    return Promise.resolve()
-  }
-  createOscillator(): FakeOscillator {
-    const osc = new FakeOscillator()
-    this.oscillators.push(osc)
-    return osc
-  }
-  createGain(): FakeGain {
-    const gain = new FakeGain()
-    this.gains.push(gain)
-    return gain
-  }
-}
-
-const asCtx = (fake: FakeAudioContext) => fake as unknown as AudioContext
 const opts = { wpm: 15, freq: 600, volume: 0.6 } // dit = 80 ms = 0.08 s
 
 describe('morseToTimingEvents (pure timeline)', () => {
@@ -164,99 +111,113 @@ describe('scheduleMorse', () => {
 })
 
 describe('MorseAudio', () => {
-  const makeEngine = () => {
+  const makeEngine = (overrides: Partial<MorseAudioOptions> = {}) => {
     const fake = new FakeAudioContext()
-    const factory = vi.fn(() => fake)
-    return { fake, factory, engine: new MorseAudio(factory as unknown as () => AudioContext) }
+    const factory = vi.fn(() => asCtx(fake))
+    const options: MorseAudioOptions = { ...opts, muted: false, ...overrides }
+    return { fake, factory, options, engine: new MorseAudio(() => options, factory) }
   }
 
-  it('creates the context lazily and resumes it when suspended', async () => {
+  it('creates one context on the first sound and resumes it when suspended', () => {
     const { fake, factory, engine } = makeEngine()
     expect(factory).not.toHaveBeenCalled()
-    expect(engine.isPlaying).toBe(false)
-    await engine.playMorse('.-', opts)
+    engine.play('.-')
     expect(factory).toHaveBeenCalledTimes(1)
     expect(fake.resumeCalls).toBe(1)
-    expect(engine.isPlaying).toBe(true)
-    // second play reuses the context, no second resume
-    await engine.playMorse('.-', opts)
+    engine.play('.-')
+    engine.beep('dit')
     expect(factory).toHaveBeenCalledTimes(1)
     expect(fake.resumeCalls).toBe(1)
   })
 
-  it('returns the duration of the scheduled message', async () => {
-    const { engine } = makeEngine()
-    await expect(engine.playMorse('...---...', opts)).resolves.toBe(
-      Math.round(morseDurationMs('...---...', 15)),
-    )
-    await expect(engine.playMorse('', opts)).resolves.toBe(0)
-  })
-
-  it('mutes by scheduling nothing but keeps the timeline', async () => {
+  it('schedules one tone per element', () => {
     const { fake, engine } = makeEngine()
-    await expect(engine.playMorse('...---...', { ...opts, muted: true })).resolves.toBe(
-      Math.round(morseDurationMs('...---...', 15)),
-    )
+    engine.play('...---...')
+    expect(fake.oscillators).toHaveLength(9)
+  })
+
+  it('reads settings at each sound', () => {
+    const { fake, options, engine } = makeEngine({ wpm: 12 })
+    engine.play('..')
+    const slow = fake.oscillators[1]!.startedAt[0]! - fake.oscillators[0]!.startedAt[0]!
+    options.wpm = 24
+    engine.play('..')
+    const fast = fake.oscillators[3]!.startedAt[0]! - fake.oscillators[2]!.startedAt[0]!
+    expect(fast).toBeCloseTo(slow / 2, 10)
+  })
+
+  it('makes no sound while muted, and creates no context', () => {
+    const { fake, factory, engine } = makeEngine({ muted: true })
+    engine.play('...---...')
+    engine.beep('dah')
     expect(fake.oscillators).toHaveLength(0)
-    expect(engine.isPlaying).toBe(false)
+    expect(factory).not.toHaveBeenCalled()
   })
 
-  it('stop() cuts pending tones and clears isPlaying', async () => {
+  it('stop() cuts every pending tone', () => {
     const { fake, engine } = makeEngine()
-    await engine.playMorse('...---...', opts)
-    expect(fake.oscillators.length).toBeGreaterThan(0)
+    engine.play('...---...')
     engine.stop()
-    // every scheduled oscillator is re-stopped at the current audio time
-    const cut = fake.oscillators.filter((osc) => osc.stoppedAt.includes(1.5))
-    expect(cut.length).toBe(fake.oscillators.length)
-    expect(engine.isPlaying).toBe(false)
+    expect(fake.oscillators.filter((osc) => osc.stoppedAt.includes(1.5))).toHaveLength(9)
   })
 
-  it('a second play stops the tones of the first', async () => {
+  it('stop() before any sound does nothing', () => {
+    const { factory, engine } = makeEngine()
+    engine.stop()
+    expect(factory).not.toHaveBeenCalled()
+  })
+
+  it('new playback replaces what is playing', () => {
     const { fake, engine } = makeEngine()
-    await engine.playMorse('...---...', opts)
+    engine.play('...---...')
     const first = fake.oscillators.slice()
-    await engine.playMorse('.-', opts)
-    const cut = first.filter((osc) => osc.stoppedAt.includes(1.5))
-    expect(cut.length).toBe(first.length)
+    engine.play('.-')
+    expect(first.filter((osc) => osc.stoppedAt.includes(1.5))).toHaveLength(first.length)
   })
 
-  it('beepNow schedules a tone starting in the near future', async () => {
+  it('blank input leaves current playback alone', () => {
     const { fake, engine } = makeEngine()
-    engine.beepNow('dit', opts)
+    engine.play('.-')
+    engine.play('   ')
+    expect(fake.oscillators.filter((osc) => osc.stoppedAt.includes(1.5))).toHaveLength(0)
+  })
+
+  it('a beep starts in the near future', () => {
+    const { fake, engine } = makeEngine()
+    engine.beep('dit')
     expect(fake.oscillators).toHaveLength(1)
     expect(fake.oscillators[0]!.startedAt[0]).toBeCloseTo(1.51, 10)
   })
 
-  it('tracks live beeps so stop() can cut them', () => {
+  it('a beep cuts playback, because the user\'s input wins', () => {
     const { fake, engine } = makeEngine()
-    engine.beepNow('dit', opts)
-    engine.stop()
-    expect(fake.oscillators[0]!.stoppedAt).toContain(1.5)
+    engine.play('...---...')
+    const playback = fake.oscillators.slice()
+    engine.beep('dit')
+    expect(playback.filter((osc) => osc.stoppedAt.includes(1.5))).toHaveLength(playback.length)
   })
 
-  it('cuts rapid overlapping beeps on stop()', () => {
+  it('a beep leaves earlier beeps ringing out', () => {
     const { fake, engine } = makeEngine()
-    engine.beepNow('dit', opts)
-    engine.beepNow('dah', opts)
-    engine.beepNow('dit', opts)
-    expect(fake.oscillators).toHaveLength(3)
+    engine.beep('dah')
+    engine.beep('dit')
+    expect(fake.oscillators[0]!.stoppedAt).not.toContain(1.5)
+  })
+
+  it('stop() cuts rapid overlapping beeps', () => {
+    const { fake, engine } = makeEngine()
+    engine.beep('dit')
+    engine.beep('dah')
+    engine.beep('dit')
     engine.stop()
     expect(fake.oscillators.filter((osc) => osc.stoppedAt.includes(1.5))).toHaveLength(3)
   })
 
-  it('a new playback stops live input beeps', async () => {
+  it('new playback stops live beeps', () => {
     const { fake, engine } = makeEngine()
-    engine.beepNow('dah', opts)
+    engine.beep('dah')
     const beep = fake.oscillators[0]!
-    await engine.playMorse('.-', opts)
+    engine.play('.-')
     expect(beep.stoppedAt).toContain(1.5)
-  })
-
-  it('isPlaying is false before the first play', () => {
-    const { engine } = makeEngine()
-    expect(engine.isPlaying).toBe(false)
-    engine.stop() // no-op without a context
-    expect(engine.isPlaying).toBe(false)
   })
 })

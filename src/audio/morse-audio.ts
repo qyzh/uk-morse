@@ -1,5 +1,5 @@
 /** Web Audio morse scheduler (PLAN.md §3.4, §7.5). */
-import { DAH_UNITS, ditMs, morseDurationMs, morseElements } from '../core/timing'
+import { DAH_UNITS, ditMs, morseElements } from '../core/timing'
 
 export type AudioContextFactory = () => AudioContext
 
@@ -8,7 +8,6 @@ export type MorseAudioOptions = {
   wpm: number
   freq: number
   volume: number
-  /** Compute/return the timeline but schedule no nodes. */
   muted?: boolean
 }
 
@@ -103,85 +102,75 @@ export function scheduleMorse(
   return { beeps, endS: opts.startAt + totalMs / 1000 }
 }
 
+/**
+ * The app's sound source. New playback replaces whatever is sounding, and a
+ * beep cuts playback because the user's input wins. Settings are read at each
+ * sound, so nothing is cached between them. The context is created on the
+ * first sound, which must come from a user gesture (plan §11 autoplay).
+ */
 export class MorseAudio {
+  private options: () => MorseAudioOptions
   private createCtx: AudioContextFactory
   private ctx: AudioContext | null = null
-  private scheduled: ScheduledBeep[] = []
-  private endTimer: ReturnType<typeof setTimeout> | null = null
-  isPlaying = false
+  private playback: ScheduledBeep[] = []
+  private beeps: ScheduledBeep[] = []
 
-  constructor(createCtx: AudioContextFactory = () => new AudioContext()) {
+  constructor(
+    options: () => MorseAudioOptions,
+    createCtx: AudioContextFactory = () => new AudioContext(),
+  ) {
+    this.options = options
     this.createCtx = createCtx
   }
 
-  get context(): AudioContext | null {
-    return this.ctx
-  }
-
-  /** Lazy-create/resume the AudioContext; call within a user gesture (plan §11 autoplay). */
-  start(): AudioContext {
-    if (!this.ctx) this.ctx = this.createCtx()
-    if (this.ctx.state === 'suspended') void this.ctx.resume()
-    return this.ctx
-  }
-
-  /**
-   * Schedule a morse string ('.- -... / word' form).
-   * Returns the morse timeline duration in ms (tones + gaps), so callers can
-   * sync visuals (plan §3.1). Muted playback returns the same duration but
-   * schedules no nodes. Overlapping calls stop the previous playback first.
-   */
-  async play(morse: string, opts: MorseAudioOptions): Promise<number> {
-    const timelineMs = Math.round(morseDurationMs(morse, opts.wpm))
-    if (morseElements(morse).length === 0) return 0
+  /** Play a morse string ('.- -... / -.-.' form). Blank input changes nothing. */
+  play(morse: string): void {
+    if (morseElements(morse).length === 0) return
     this.stop()
-    if (opts.muted) return timelineMs
-    const ctx = this.start()
-    this.isPlaying = true
-    const { beeps } = scheduleMorse(ctx, morse, { ...opts, startAt: ctx.currentTime + LEAD_IN_S })
-    this.scheduled = this.scheduled.filter((b) => b.endS > ctx.currentTime).concat(beeps)
-    this.endTimer = setTimeout(() => {
-      this.isPlaying = false
-      this.endTimer = null
-    }, timelineMs + LEAD_IN_S * 1000)
-    return timelineMs
+    const opts = this.options()
+    if (opts.muted) return
+    const ctx = this.context()
+    this.playback = scheduleMorse(ctx, morse, { ...opts, startAt: ctx.currentTime + LEAD_IN_S }).beeps
   }
 
-  /** Play a single dit/dah — instant feedback for trainer input (plan §3.1). */
-  beepNow(ditOrDah: 'dit' | 'dah', opts: MorseAudioOptions): void {
-    const ctx = this.start()
+  /** Sound one element straight away, as feedback for keying it. */
+  beep(kind: 'dit' | 'dah'): void {
+    const opts = this.options()
+    if (opts.muted) return
+    const ctx = this.context()
     const now = ctx.currentTime
-    this.scheduled = this.scheduled.filter((b) => b.endS > now)
-    const dur = ditOrDah === 'dah' ? DAH_UNITS * ditMs(opts.wpm) : ditMs(opts.wpm)
-    this.scheduled.push(
+    this.cut(this.playback.splice(0))
+    this.beeps = this.beeps.filter((beep) => beep.endS > now)
+    this.beeps.push(
       scheduleBeep(ctx, {
         when: now + LEAD_IN_S,
-        durationMs: dur,
+        durationMs: (kind === 'dah' ? DAH_UNITS : 1) * ditMs(opts.wpm),
         freq: opts.freq,
         volume: opts.volume,
       }),
     )
   }
 
-  /** Alias matching the trainer/dictionary call-site and tests. */
-  async playMorse(morse: string, opts: MorseAudioOptions): Promise<number> {
-    return this.play(morse, opts)
+  stop(): void {
+    this.cut(this.playback.splice(0))
+    this.cut(this.beeps.splice(0))
   }
 
-  stop(): void {
-    if (this.endTimer !== null) {
-      clearTimeout(this.endTimer)
-      this.endTimer = null
-    }
+  private context(): AudioContext {
+    if (!this.ctx) this.ctx = this.createCtx()
+    if (this.ctx.state === 'suspended') void this.ctx.resume()
+    return this.ctx
+  }
+
+  private cut(beeps: ScheduledBeep[]): void {
     if (!this.ctx) return
     const now = this.ctx.currentTime
-    for (const beep of this.scheduled.splice(0)) {
+    for (const beep of beeps) {
       try {
         beep.osc.stop(now)
       } catch {
         // already stopped
       }
     }
-    this.isPlaying = false
   }
 }
