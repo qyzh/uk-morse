@@ -1,11 +1,20 @@
 /** Drill + speed-test progress, persisted separately from settings (plan §3.5). */
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { accuracy, wpmOf } from '../core/drills'
+import { wpmOf } from '../core/drills'
 
 const STORAGE_KEY = 'morse-app:progress:v1'
 
-export type SpeedDuration = 30 | 60 | 120
+export const SPEED_DURATIONS = [30, 60, 120] as const
+
+export type SpeedDuration = (typeof SPEED_DURATIONS)[number]
+
+export type SpeedResult = {
+  wpm: number
+  /** Best WPM for this duration, including this run. */
+  best: number
+  isRecord: boolean
+}
 
 export type ProgressState = {
   /** best WPM achieved per speed-test duration (keyed by duration seconds) */
@@ -16,13 +25,13 @@ export type ProgressState = {
   bestStreak: number
   recordDrill: (correct: boolean) => void
   recordStreak: (streak: number) => void
-  recordSpeedTest: (durationS: SpeedDuration, chars: number) => number
+  recordSpeedTest: (durationS: SpeedDuration, chars: number) => SpeedResult
   reset: () => void
 }
 
 export const useProgressStore = create<ProgressState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       bestWpm: { 30: 0, 60: 0, 120: 0 },
       drillsCorrect: 0,
       drillsTotal: 0,
@@ -39,12 +48,10 @@ export const useProgressStore = create<ProgressState>()(
 
       recordSpeedTest: (durationS, chars) => {
         const wpm = Math.round(wpmOf(chars, durationS))
-        set((s) => {
-          const current = s.bestWpm[durationS] ?? 0
-          if (wpm > current) return { bestWpm: { ...s.bestWpm, [durationS]: wpm } }
-          return s
-        })
-        return wpm
+        const previousBest = get().bestWpm[durationS]
+        const isRecord = wpm > previousBest
+        if (isRecord) set((s) => ({ bestWpm: { ...s.bestWpm, [durationS]: wpm } }))
+        return { wpm, best: Math.max(wpm, previousBest), isRecord }
       },
 
       reset: () =>
@@ -62,7 +69,3 @@ export const useProgressStore = create<ProgressState>()(
     },
   ),
 )
-
-export function accuracyPercent(state: { drillsCorrect: number; drillsTotal: number }): number {
-  return accuracy(state.drillsCorrect, state.drillsTotal)
-}

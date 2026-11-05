@@ -1,212 +1,91 @@
-import { useEffect, useRef, useState } from 'react'
-import { MORSE_LIST, type MorseEntry } from '../core/morse-data'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { accuracy } from '../core/drills'
 import { useMorseAudio } from '../hooks/useMorseAudio'
 import { useMorseKeyboard } from '../hooks/useMorseKeyboard'
-import { createMorseInput } from '../input/morse-input'
+import { createPracticeSession } from '../practice/practice-session'
+import type { Drill, PracticeMode } from '../practice/practice-session'
+import { SPEED_DURATIONS, useProgressStore } from '../store/progressStore'
+import type { SpeedDuration } from '../store/progressStore'
 import { useSettingsStore } from '../store/settingsStore'
-import { PlayIcon, RotateIcon } from './icons'
-import { Button, Feedback, InputPad, Kbd, PageTitle, ScoreStrip, Segmented } from './ui'
+import { CheckIcon, PlayIcon, RotateIcon } from './icons'
+import { Button, Feedback, InputPad, Kbd, PageTitle, Readouts, ScoreStrip, Segmented } from './ui'
 import type { FeedbackState } from './ui'
-
-const letters = MORSE_LIST.filter((e) => e.category === 'letter')
-
-function randomEntry(): MorseEntry {
-  return letters[Math.floor(Math.random() * letters.length)]!
-}
-
-const SPEED_SECONDS = 30
 
 function formatTime(seconds: number): string {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
 }
 
-type Mode = 'encode' | 'decode' | 'speed'
-
 const MODES = [
   { value: 'encode', label: 'Encode' },
   { value: 'decode', label: 'Decode' },
   { value: 'speed', label: 'Speed test' },
-] as const satisfies ReadonlyArray<{ value: Mode; label: string }>
+] as const satisfies ReadonlyArray<{ value: PracticeMode; label: string }>
+
+const DURATIONS = SPEED_DURATIONS.map((seconds) => ({
+  value: String(seconds),
+  label: `${seconds} detik`,
+}))
+
+function drillFeedback(drill: Drill, wrongLabel: string): FeedbackState {
+  if (drill.outcome === null) return null
+  if (drill.outcome === 'correct') return { kind: 'ok', text: 'Benar!' }
+  return { kind: 'bad', text: `Salah — ${wrongLabel} ${drill.target.char}` }
+}
+
+/** Lifetime progress across both drills. */
+function DrillProgress() {
+  const correct = useProgressStore((s) => s.drillsCorrect)
+  const total = useProgressStore((s) => s.drillsTotal)
+  const bestStreak = useProgressStore((s) => s.bestStreak)
+  return (
+    <Readouts
+      items={[
+        ['riwayat:', total > 0 ? `${correct}/${total} (${accuracy(correct, total)}%)` : '—'],
+        ['streak terbaik:', bestStreak],
+      ]}
+    />
+  )
+}
 
 export function Practice() {
   const { play, beep, stop } = useMorseAudio()
-  const [mode, setMode] = useState<Mode>('encode')
-
-  // The inputs outlive renders; their commits need the current targets.
-  const [commits] = useState(() => {
-    type Handlers = Record<'encode' | 'speed', (entry: MorseEntry | null) => void>
-    let handlers: Handlers | undefined
-    return {
-      set: (next: Handlers) => {
-        handlers = next
-      },
-      encode: (entry: MorseEntry | null) => handlers?.encode(entry),
-      speed: (entry: MorseEntry | null) => handlers?.speed(entry),
-    }
-  })
-  const [encInput] = useState(() =>
-    createMorseInput({
+  const [session] = useState(() =>
+    createPracticeSession({
       autoCommitMs: () => useSettingsStore.getState().autoCommitMs,
-      onElement: beep,
-      onCommit: commits.encode,
+      beep,
+      stopAudio: stop,
+      progress: useProgressStore.getState(),
     }),
   )
-  const [speedInput] = useState(() =>
-    createMorseInput({
-      autoCommitMs: () => useSettingsStore.getState().autoCommitMs,
-      onElement: beep,
-      onCommit: commits.speed,
-    }),
+  const { mode, encode, decode, decodeAnswer, speed } = useSyncExternalStore(
+    session.subscribe,
+    session.getState,
+    session.getState,
   )
-  const encBuffer = useMorseKeyboard(encInput)
-  const speedBuffer = useMorseKeyboard(speedInput)
-
-  /* ---------- Encode drill ---------- */
-  const [encTarget, setEncTarget] = useState(randomEntry)
-  const [encScore, setEncScore] = useState(0)
-  const [encTotal, setEncTotal] = useState(0)
-  const [encFeedback, setEncFeedback] = useState<FeedbackState>(null)
-  const [encLocked, setEncLocked] = useState(false)
-  const encLockedRef = useRef(false)
-  const encTimer = useRef<number | undefined>(undefined)
-
-  const commitEncode = (entry: MorseEntry | null) => {
-    if (encLockedRef.current) return
-    encLockedRef.current = true
-    setEncLocked(true)
-    setEncTotal((t) => t + 1)
-    if (entry?.char === encTarget.char) {
-      setEncScore((s) => s + 1)
-      setEncFeedback({ kind: 'ok', text: 'Benar!' })
-    } else {
-      setEncFeedback({ kind: 'bad', text: `Salah — target ${encTarget.char}` })
-    }
-    window.clearTimeout(encTimer.current)
-    encTimer.current = window.setTimeout(() => {
-      stop()
-      setEncTarget(randomEntry())
-      setEncFeedback(null)
-      setEncLocked(false)
-      encLockedRef.current = false
-    }, 450)
-  }
-  const encMobile = mode === 'encode'
-
-  /* ---------- Decode drill ---------- */
-  const [dec, setDec] = useState(randomEntry)
-  const [decAnswer, setDecAnswer] = useState('')
-  const [decScore, setDecScore] = useState(0)
-  const [decTotal, setDecTotal] = useState(0)
-  const [decFeedback, setDecFeedback] = useState<FeedbackState>(null)
-  const [decLocked, setDecLocked] = useState(false)
-  const [decRound, setDecRound] = useState(0)
-  const decLockedRef = useRef(false)
-  const decTimer = useRef<number | undefined>(undefined)
+  const buffer = useMorseKeyboard(session.input)
+  const bestWpm = useProgressStore((s) => s.bestWpm[speed.durationS])
   const answerRef = useRef<HTMLInputElement>(null)
 
-  // Autofocus whenever the panel mounts (mode switch) or a new question is
-  // ready — a repeated random letter must not leave the answer box blurred.
+  useEffect(() => session.dispose, [session])
+
+  // The answer box loses focus while it's disabled between rounds.
   useEffect(() => {
     answerRef.current?.focus()
-  }, [mode, decRound])
+  }, [mode, decode.round])
 
-  const submitDec = () => {
-    if (decLockedRef.current) return
-    const guess = decAnswer.trim().toUpperCase()
-    if (!guess) return
-    decLockedRef.current = true
-    setDecLocked(true)
-    setDecTotal((t) => t + 1)
-    if (guess === dec.char) {
-      setDecScore((s) => s + 1)
-      setDecFeedback({ kind: 'ok', text: 'Benar!' })
-    } else {
-      setDecFeedback({ kind: 'bad', text: `Salah — jawabannya ${dec.char}` })
-    }
-    window.clearTimeout(decTimer.current)
-    decTimer.current = window.setTimeout(() => {
-      stop()
-      setDec(randomEntry())
-      setDecAnswer('')
-      setDecFeedback(null)
-      setDecLocked(false)
-      decLockedRef.current = false
-      setDecRound((r) => r + 1)
-    }, 450)
-  }
+  const decodeLocked = decode.outcome !== null
 
-  /* ---------- Speed test ---------- */
-  const [speedActive, setSpeedActive] = useState(false)
-  const [speedDone, setSpeedDone] = useState(false)
-  const [speedTime, setSpeedTime] = useState(SPEED_SECONDS)
-  const [speedTarget, setSpeedTarget] = useState(randomEntry)
-  const [speedScore, setSpeedScore] = useState(0)
-  const [speedTotal, setSpeedTotal] = useState(0)
-  const finishTimer = useRef<number | undefined>(undefined)
-
-  useEffect(
-    () => () => {
-      window.clearTimeout(finishTimer.current)
-      window.clearTimeout(encTimer.current)
-      window.clearTimeout(decTimer.current)
-    },
-    [],
+  const inputPad = (commitDisabled: boolean) => (
+    <InputPad
+      className="pointer-fine:md:hidden"
+      onDit={session.input.dit}
+      onDah={session.input.dah}
+      onCommit={session.input.commit}
+      commitDisabled={commitDisabled}
+      onSpace={session.input.wordGap}
+      onBackspace={session.input.backspace}
+    />
   )
-
-  // countdown ticks; the finish transition is scheduled from startSpeed()
-  useEffect(() => {
-    if (!speedActive || mode !== 'speed') return
-    const id = window.setInterval(() => {
-      setSpeedTime((t) => Math.max(0, t - 1))
-    }, 1000)
-    return () => window.clearInterval(id)
-  }, [speedActive, mode])
-
-  const commitSpeed = (entry: MorseEntry | null) => {
-    setSpeedTotal((t) => t + 1)
-    if (entry?.char === speedTarget.char) setSpeedScore((s) => s + 1)
-    setSpeedTarget(randomEntry())
-  }
-
-  useEffect(() => {
-    commits.set({ encode: commitEncode, speed: commitSpeed })
-  })
-
-  useEffect(() => {
-    encInput.setGate(mode !== 'encode' ? 'closed' : encLocked ? 'held' : 'open')
-    speedInput.setGate(mode === 'speed' && speedActive ? 'open' : 'closed')
-  }, [encInput, speedInput, mode, encLocked, speedActive])
-
-  const startSpeed = () => {
-    stop()
-    speedInput.reset()
-    setSpeedScore(0)
-    setSpeedTotal(0)
-    setSpeedTime(SPEED_SECONDS)
-    setSpeedTarget(randomEntry())
-    setSpeedDone(false)
-    setSpeedActive(true)
-    window.clearTimeout(finishTimer.current)
-    finishTimer.current = window.setTimeout(() => {
-      setSpeedActive(false)
-      setSpeedDone(true)
-    }, SPEED_SECONDS * 1000)
-  }
-
-  const changeMode = (next: Mode) => {
-    if (next === mode) return
-    stop()
-    if (speedActive) {
-      window.clearTimeout(finishTimer.current)
-      setSpeedActive(false)
-      setSpeedDone(false)
-      setSpeedTime(SPEED_SECONDS)
-    }
-    setMode(next)
-  }
-
-  const accuracy = speedTotal > 0 ? Math.round((speedScore / speedTotal) * 100) : 0
-  const wpm = Math.round((speedScore / 5) / (SPEED_SECONDS / 60))
 
   return (
     <div className="space-y-8">
@@ -214,7 +93,7 @@ export function Practice() {
         <PageTitle>Latih telinga dan jarimu.</PageTitle>
       </header>
 
-      <Segmented label="Mode latihan" value={mode} options={MODES} onChange={changeMode} />
+      <Segmented label="Mode latihan" value={mode} options={MODES} onChange={session.setMode} />
 
       {mode === 'encode' && (
         <>
@@ -223,28 +102,19 @@ export function Practice() {
               <span aria-hidden="true" className="mr-2 select-none text-ink-3/70">//</span>
               encode — ketik morse dari huruf ini
             </h2>
-            <p className="font-mono text-6xl text-ink">{encTarget.char}</p>
-            <p className={'min-h-9 font-mono text-2xl tracking-[0.18em] ' + (encBuffer ? 'text-signal-text' : 'text-ink-3')}>
-              {encBuffer || (
+            <p className="font-mono text-6xl text-ink">{encode.target.char}</p>
+            <p className={'min-h-9 font-mono text-2xl tracking-[0.18em] ' + (buffer ? 'text-signal-text' : 'text-ink-3')}>
+              {buffer || (
                 <span className="font-sans text-sm tracking-normal">
                   <Kbd>←</Kbd> dit · <Kbd>→</Kbd> dah · <Kbd>Space</Kbd> commit
                 </span>
               )}
             </p>
-            <Feedback state={encFeedback} />
-            <ScoreStrip score={encScore} total={encTotal} />
+            <Feedback state={drillFeedback(encode, 'target')} />
+            <ScoreStrip score={encode.score} total={encode.total} />
+            <DrillProgress />
           </section>
-          {encMobile && (
-            <InputPad
-              className="pointer-fine:md:hidden"
-              onDit={encInput.dit}
-              onDah={encInput.dah}
-              onCommit={encInput.commit}
-              commitDisabled={encBuffer.length === 0 || encLocked}
-              onSpace={encInput.wordGap}
-              onBackspace={encInput.backspace}
-            />
-          )}
+          {inputPad(buffer.length === 0 || encode.outcome !== null)}
         </>
       )}
 
@@ -256,12 +126,12 @@ export function Practice() {
           </h2>
           <div className="flex items-center gap-3">
             <p className="font-mono text-4xl tracking-[0.2em] text-ink sm:text-5xl">
-              {dec.morse}
+              {decode.target.morse}
             </p>
             <Button
               variant="secondary"
               size="icon"
-              onClick={() => play(dec.morse)}
+              onClick={() => play(decode.target.morse)}
               aria-label="Putar audio morse ini"
             >
               <PlayIcon className="size-4" />
@@ -271,7 +141,7 @@ export function Practice() {
             className="flex items-center gap-2"
             onSubmit={(e) => {
               e.preventDefault()
-              submitDec()
+              session.submitDecodeAnswer()
             }}
           >
             <label htmlFor="decode-answer" className="sr-only">
@@ -280,9 +150,9 @@ export function Practice() {
             <input
               id="decode-answer"
               ref={answerRef}
-              value={decAnswer}
-              onChange={(e) => setDecAnswer(e.target.value.toUpperCase())}
-              disabled={decLocked}
+              value={decodeAnswer}
+              onChange={(e) => session.setDecodeAnswer(e.target.value)}
+              disabled={decodeLocked}
               maxLength={8}
               autoComplete="off"
               spellCheck={false}
@@ -290,12 +160,13 @@ export function Practice() {
               placeholder="?"
               className="h-11 w-24 border-0 border-b border-edge-strong bg-transparent text-center font-mono text-lg uppercase text-ink transition-colors duration-150 placeholder:text-ink-3 hover:border-ink-3 focus:border-ink-3 disabled:opacity-50"
             />
-            <Button type="submit" variant="primary" disabled={decLocked || decAnswer.trim() === ''}>
+            <Button type="submit" variant="primary" disabled={decodeLocked || decodeAnswer.trim() === ''}>
               Periksa
             </Button>
           </form>
-          <Feedback state={decFeedback} />
-          <ScoreStrip score={decScore} total={decTotal} />
+          <Feedback state={drillFeedback(decode, 'jawabannya')} />
+          <ScoreStrip score={decode.score} total={decode.total} />
+          <DrillProgress />
         </section>
       )}
 
@@ -304,87 +175,98 @@ export function Practice() {
           <section className="flex flex-col items-start gap-5 border-t border-edge pt-6">
             <h2 className="text-sm text-ink-3">
               <span aria-hidden="true" className="mr-2 select-none text-ink-3/70">//</span>
-              speed test — {SPEED_SECONDS} detik, kejar skor sebanyak mungkin
+              speed test — {speed.durationS} detik, kejar skor sebanyak mungkin
             </h2>
 
-            {!speedActive && !speedDone && (
+            {speed.phase !== 'running' && (
+              <Segmented
+                label="Durasi speed test"
+                value={String(speed.durationS)}
+                options={DURATIONS}
+                onChange={(value) => session.setSpeedDuration(Number(value) as SpeedDuration)}
+              />
+            )}
+
+            {speed.phase === 'ready' && (
               <>
                 <p className="max-w-md text-base text-ink-2">
                   Huruf muncul satu per satu. Ketik morse-nya dengan panah, lalu <Kbd>Space</Kbd>{' '}
                   untuk commit. Skor dihitung dari huruf benar.
                 </p>
-                <Button variant="primary" size="lg" onClick={startSpeed}>
+                <Button variant="primary" size="lg" onClick={session.startSpeedTest}>
                   <PlayIcon className="size-4" />
-                  Mulai {SPEED_SECONDS} detik
+                  Mulai {speed.durationS} detik
                 </Button>
+                <Readouts items={[[`rekor ${speed.durationS} detik:`, `${bestWpm} WPM`]]} />
               </>
             )}
 
-            {speedActive && (
-              <>
-                <div className="w-full max-w-xs">
-                  <div className="mb-1.5 flex items-baseline justify-between">
-                    <span className="text-sm text-ink-3">waktu</span>
-                    <span
-                      role="timer"
-                      aria-label="Sisa waktu"
-                      className="font-mono text-2xl tabular-nums text-ink"
-                    >
-                      {formatTime(speedTime)}
-                    </span>
-                  </div>
-                  <div className="h-1.5 overflow-hidden bg-surface-2">
-                    <div
-                      className="h-full bg-ink-2 transition-[width] duration-1000 ease-linear"
-                      style={{ width: `${(speedTime / SPEED_SECONDS) * 100}%` }}
-                    />
-                  </div>
+            {speed.phase !== 'ready' && (
+              <div className="w-full max-w-xs">
+                <div className="mb-1.5 flex items-baseline justify-between">
+                  <span className="text-sm text-ink-3">waktu</span>
+                  <span
+                    role="timer"
+                    aria-label="Sisa waktu"
+                    className="font-mono text-2xl tabular-nums text-ink"
+                  >
+                    {formatTime(speed.remainingS)}
+                  </span>
                 </div>
-                <p className="font-mono text-6xl text-ink">{speedTarget.char}</p>
-                <p className={'min-h-9 font-mono text-2xl tracking-[0.18em] ' + (speedBuffer ? 'text-signal-text' : 'text-ink-3')}>
-                  {speedBuffer || '…'}
+                <div className="h-1.5 overflow-hidden bg-surface-2">
+                  <div
+                    className="h-full bg-ink-2 transition-[width] duration-1000 ease-linear"
+                    style={{ width: `${(speed.remainingS / speed.durationS) * 100}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {speed.phase === 'running' && (
+              <>
+                <p className="font-mono text-6xl text-ink">{speed.target.char}</p>
+                <p className={'min-h-9 font-mono text-2xl tracking-[0.18em] ' + (buffer ? 'text-signal-text' : 'text-ink-3')}>
+                  {buffer || '…'}
                 </p>
-                <ScoreStrip score={speedScore} total={speedTotal} />
+                <ScoreStrip score={speed.score} total={speed.total} />
               </>
             )}
 
-            {speedDone && (
+            {speed.phase === 'done' && speed.result && (
               <div role="status" aria-live="polite" className="flex flex-col items-start gap-4">
                 <p className="text-sm text-ink-3">
                   <span aria-hidden="true" className="mr-2 select-none text-ink-3/70">//</span>
                   hasil
                 </p>
-                {speedTotal === 0 ? (
+                {speed.total === 0 ? (
                   <p className="text-base text-ink-3">Tidak ada input sama sekali. Coba lagi, pelan-pelan dulu.</p>
                 ) : (
                   <>
                     <p className="font-mono text-5xl tabular-nums text-ink">
-                      {wpm}
+                      {speed.result.wpm}
                       <span className="ml-2 text-lg text-ink-3">WPM</span>
                     </p>
                     <p className="text-base text-ink-2">
-                      {speedScore} benar dari {speedTotal} soal · akurasi {accuracy}%
+                      {speed.score} benar dari {speed.total} soal · akurasi {accuracy(speed.score, speed.total)}%
                     </p>
+                    {speed.result.isRecord ? (
+                      <p className="flex items-center gap-1.5 text-sm text-signal-text">
+                        <CheckIcon className="size-4 shrink-0" />
+                        Rekor baru!
+                      </p>
+                    ) : (
+                      <Readouts items={[[`rekor ${speed.durationS} detik:`, `${speed.result.best} WPM`]]} />
+                    )}
                   </>
                 )}
-                <Button variant="secondary" onClick={startSpeed}>
+                <Button variant="secondary" onClick={session.startSpeedTest}>
                   <RotateIcon className="size-4" />
                   Main lagi
                 </Button>
               </div>
             )}
           </section>
-          {speedActive && (
-            <InputPad
-              className="pointer-fine:md:hidden"
-              onDit={speedInput.dit}
-              onDah={speedInput.dah}
-              onCommit={speedInput.commit}
-              commitDisabled={speedBuffer.length === 0}
-              onSpace={speedInput.wordGap}
-              onBackspace={speedInput.backspace}
-            />
-          )}
+          {speed.phase === 'running' && inputPad(buffer.length === 0)}
         </>
       )}
     </div>

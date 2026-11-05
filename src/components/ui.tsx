@@ -3,6 +3,7 @@
  * One Button/Segmented glossary keeps all views consistent.
  */
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
+import { accuracy } from '../core/drills'
 import { cx } from './cx'
 import { CheckIcon, XIcon } from './icons'
 
@@ -158,32 +159,34 @@ export function Feedback({ state, className }: { state: FeedbackState; className
   )
 }
 
-/** Benar / Soal / Akurasi readout. */
-export function ScoreStrip({
-  score,
-  total,
-  className,
+/** Terminal readouts, `label: value`. */
+export function Readouts({
+  items,
 }: {
-  score: number
-  total: number
-  className?: string
+  items: ReadonlyArray<readonly [label: string, value: ReactNode]>
 }) {
-  const accuracy = total > 0 ? `${Math.round((score / total) * 100)}%` : '—'
   return (
-    <dl className={cx('flex items-center gap-5 font-mono text-sm text-ink-3', className)}>
-      <div className="flex items-baseline gap-1.5">
-        <dt>benar:</dt>
-        <dd className="text-sm tabular-nums text-ink">{score}</dd>
-      </div>
-      <div className="flex items-baseline gap-1.5">
-        <dt>soal:</dt>
-        <dd className="text-sm tabular-nums text-ink">{total}</dd>
-      </div>
-      <div className="flex items-baseline gap-1.5">
-        <dt>akurasi:</dt>
-        <dd className="text-sm tabular-nums text-ink">{accuracy}</dd>
-      </div>
+    <dl className="flex flex-wrap items-center gap-x-5 gap-y-1 font-mono text-sm text-ink-3">
+      {items.map(([label, value]) => (
+        <div key={label} className="flex items-baseline gap-1.5">
+          <dt>{label}</dt>
+          <dd className="text-sm tabular-nums text-ink">{value}</dd>
+        </div>
+      ))}
     </dl>
+  )
+}
+
+/** Benar / Soal / Akurasi readout. */
+export function ScoreStrip({ score, total }: { score: number; total: number }) {
+  return (
+    <Readouts
+      items={[
+        ['benar:', score],
+        ['soal:', total],
+        ['akurasi:', total > 0 ? `${accuracy(score, total)}%` : '—'],
+      ]}
+    />
   )
 }
 

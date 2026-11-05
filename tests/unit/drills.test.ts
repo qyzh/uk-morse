@@ -1,37 +1,27 @@
 import { describe, expect, it } from 'vitest'
-import {
-  EASY_POOL,
-  LETTER_POOL,
-  LETTERS_BY_FREQUENCY,
-  accuracy,
-  pickTarget,
-  wpmOf,
-} from '../../src/core/drills'
+import { LETTERS, accuracy, pickTarget, wpmOf } from '../../src/core/drills'
 
-describe('drills pools', () => {
-  it('EASY_POOL covers the first six letters (plan §3.3 adaptive)', () => {
-    expect(EASY_POOL).toEqual(['E', 'T', 'I', 'A', 'N', 'M'])
-  })
-
-  it('LETTERS_BY_FREQUENCY starts with E T I A N and has 26 unique letters', () => {
-    expect(LETTERS_BY_FREQUENCY.slice(0, 5)).toEqual(['E', 'T', 'I', 'A', 'N'])
-    expect(new Set(LETTERS_BY_FREQUENCY).size).toBe(26)
-    expect(LETTER_POOL).toHaveLength(26)
+describe('LETTERS', () => {
+  it('holds the 26 letter entries', () => {
+    expect(LETTERS).toHaveLength(26)
+    expect(LETTERS.every((entry) => entry.category === 'letter')).toBe(true)
   })
 })
 
 describe('pickTarget', () => {
+  const [a, b] = LETTERS
+
   it('always returns a member of the pool', () => {
     for (let i = 0; i < 200; i++) {
-      expect(pickTarget(EASY_POOL)).toSatisfy((c: string) => EASY_POOL.includes(c))
+      expect(LETTERS).toContain(pickTarget(LETTERS))
     }
   })
 
   it('excludes the last target when possible', () => {
     for (let i = 0; i < 100; i++) {
-      expect(pickTarget(['A', 'B'], 'A')).toBe('B')
+      expect(pickTarget([a!, b!], a)).toBe(b)
     }
-    expect(pickTarget(['A'], 'A')).toBe('A') // single-item falls back
+    expect(pickTarget([a!], a)).toBe(a) // single-item falls back
   })
 })
 

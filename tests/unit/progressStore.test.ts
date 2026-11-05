@@ -40,18 +40,32 @@ describe('progress store', () => {
 
   it('records speed tests and updates per-duration best WPM', () => {
     const s = useProgressStore.getState()
-    // 20 correct chars in 30s = 4 WPM... wait (20/5)/(0.5)=8
-    expect(s.recordSpeedTest(30, 20)).toBe(8)
+    // (20 / 5) / 0.5 minutes = 8 WPM
+    expect(s.recordSpeedTest(30, 20)).toEqual({ wpm: 8, best: 8, isRecord: true })
     expect(useProgressStore.getState().bestWpm[30]).toBe(8)
     // slower run does not lower the best
-    expect(s.recordSpeedTest(30, 10)).toBe(4)
+    expect(s.recordSpeedTest(30, 10)).toEqual({ wpm: 4, best: 8, isRecord: false })
     expect(useProgressStore.getState().bestWpm[30]).toBe(8)
-    // durations are independent; 120 chars in 120s = (120/5)/2 = 12 WPM
-    expect(s.recordSpeedTest(60, 50)).toBe(10)
+    // durations are independent
+    expect(s.recordSpeedTest(60, 50).wpm).toBe(10)
     expect(useProgressStore.getState().bestWpm[60]).toBe(10)
     expect(useProgressStore.getState().bestWpm[30]).toBe(8)
-    expect(s.recordSpeedTest(120, 120)).toBe(12)
+    expect(s.recordSpeedTest(120, 120).wpm).toBe(12)
     expect(useProgressStore.getState().bestWpm[120]).toBe(12)
+  })
+
+  it('does not count equalling the best as a record', () => {
+    const s = useProgressStore.getState()
+    s.recordSpeedTest(30, 20)
+    expect(s.recordSpeedTest(30, 20)).toEqual({ wpm: 8, best: 8, isRecord: false })
+  })
+
+  it('does not count an empty run as a record', () => {
+    expect(useProgressStore.getState().recordSpeedTest(30, 0)).toEqual({
+      wpm: 0,
+      best: 0,
+      isRecord: false,
+    })
   })
 
   it('persists to localStorage without actions', () => {

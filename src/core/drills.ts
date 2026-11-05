@@ -1,17 +1,11 @@
-/** Drill helpers (plan §3.3): target picking, scoring, WPM formula, pools. */
-import { MORSE_LIST } from './morse-data'
+/** Drill helpers (plan §3.3): target picking, scoring, WPM formula. */
+import { MORSE_LIST, type MorseEntry } from './morse-data'
 
-/** Letters ordered by CW learning frequency (E T first — plan "adaptive difficulty"). */
-export const LETTERS_BY_FREQUENCY = [
-  ...'ETIANMSURWDHGOVKFBLZPQCXYJ'.split(''),
-]
-/** Starter pool for drills (easiest letters first). */
-export const EASY_POOL = ['E', 'T', 'I', 'A', 'N', 'M']
+export const LETTERS: readonly MorseEntry[] = MORSE_LIST.filter((e) => e.category === 'letter')
 
-export const LETTER_POOL = MORSE_LIST.filter((e) => e.category === 'letter').map((e) => e.char)
-
-export function pickTarget(pool: string[] = LETTER_POOL, exclude?: string): string {
-  const candidates = exclude === undefined ? pool : pool.filter((c) => c !== exclude)
+/** A random entry from the pool, avoiding `exclude` when the pool allows it. */
+export function pickTarget(pool: readonly MorseEntry[], exclude?: MorseEntry): MorseEntry {
+  const candidates = pool.filter((entry) => entry !== exclude)
   const source = candidates.length > 0 ? candidates : pool
   return source[Math.floor(Math.random() * source.length)]!
 }
