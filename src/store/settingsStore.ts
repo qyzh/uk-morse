@@ -27,7 +27,7 @@ export const DEFAULT_SETTINGS: SettingsState = {
   volume: 0.6,
   muted: false,
   autoCommitMs: 700,
-  theme: 'dark',
+  theme: 'light',
 }
 
 export function clamp(v: number, min: number, max: number): number {
@@ -61,7 +61,10 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
     }),
     {
       name: STORAGE_KEY,
-      version: 1,
+      version: 2,
+      // Version 1 saved dark as the default rather than a choice, so everyone starts on paper once.
+      migrate: (persisted, version) =>
+        (version < 2 ? { ...(persisted as object), theme: 'light' } : persisted) as SettingsState,
       // Persist only data — never the actions — so stale keys rehydrate cleanly
       partialize: ({ wpm, toneHz, volume, muted, autoCommitMs, theme }) => ({
         wpm,

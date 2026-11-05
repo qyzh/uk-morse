@@ -37,8 +37,8 @@ function contrast(a: string, b: string): number {
 const TEXT_TOKENS = ['ink', 'ink-2', 'ink-3', 'signal-text', 'danger-text', 'warn']
 
 for (const [theme, selector] of [
-  ['dark', ':root'],
-  ['light', 'html.light'],
+  ['paper', ':root'],
+  ['night', 'html.dark'],
 ] as const) {
   describe(`${theme} palette`, () => {
     const tokens = tokenBlock(selector)
@@ -51,6 +51,13 @@ for (const [theme, selector] of [
 
     it('--edge-strong meets 3:1 as the control boundary', () => {
       expect(contrast(tokens['edge-strong']!, tokens.bg!)).toBeGreaterThanOrEqual(3)
+    })
+
+    it('lit lamps meet 3:1 on the sheet and stand apart from unlit dots', () => {
+      for (const token of ['led-dit', 'led-dah', 'led-target']) {
+        expect(contrast(tokens[token]!, tokens.bg!), token).toBeGreaterThanOrEqual(3)
+        expect(contrast(tokens[token]!, tokens['board-off']!), token).toBeGreaterThanOrEqual(3)
+      }
     })
 
     it('button labels contrast with their colored backgrounds', () => {

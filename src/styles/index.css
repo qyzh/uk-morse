@@ -1,21 +1,21 @@
 /**
- * Signal Terminal — design tokens.
+ * Old paper — design tokens.
  *
  * Palette rules (verified in tests/unit/contrast.test.ts):
- *  - Background:   #151515  (user-specified)
- *  - Primary text: #f5f5f5  (user-specified)
- *  - Text tokens derive from these two with ≥4.5:1 contrast against --bg.
+ *  - Paper, the product default (`:root`), is sampled from an aged sheet;
+ *    the inks are the ones such a sheet would carry: iron gall, verdigris,
+ *    vermilion and Prussian blue.
+ *  - Night (`html.dark`) is the same sheet under a low lamp.
+ *  - Text tokens keep at least 4.5:1 contrast against --bg.
  *  - --edge is a decorative hairline (below 3:1 by design); --edge-strong is
- *    the control boundary and meets ≥3:1 for UI components.
- *
- * Dark is the product default (`:root`), light is `html.light`.
+ *    the control boundary and meets at least 3:1 for UI components.
  */
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&display=swap');
 @import 'tailwindcss';
 
 @theme inline {
-  --font-sans: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-sans: 'Courier Prime', 'Courier New', ui-monospace, monospace;
+  --font-mono: 'Courier Prime', 'Courier New', ui-monospace, monospace;
 
   --color-bg: var(--bg);
   --color-surface: var(--surface);
@@ -33,78 +33,98 @@
   --color-danger-text: var(--danger-text);
   --color-warn: var(--warn);
   --color-ring: var(--ring);
+  --color-board-off: var(--board-off);
+  --color-led-dit: var(--led-dit);
+  --color-led-dah: var(--led-dah);
+  --color-led-target: var(--led-target);
 }
 
-/* Dark theme (default — no first-paint flash for the primary persona). */
+/* Paper (default, so the first paint is already the sheet). */
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 
-  /* User anchors */
-  --bg: #151515;
-  --ink: #f5f5f5;
+  --bg: #f1e4c5;
+  --ink: #2a1c10;
 
-  /* Surfaces — elevated panels above the background */
-  --surface: #1e1e1e;
-  --surface-2: #292929;
+  /* Surfaces — fresher and more handled parts of the sheet */
+  --surface: #f7eed9;
+  --surface-2: #e6d6b0;
 
   /* Edges — --edge is a decorative hairline; --edge-strong is the control boundary */
-  --edge: #3a3a3a;
-  --edge-strong: #6b6b6b;
+  --edge: #d5c197;
+  --edge-strong: #8c7247;
 
   /* Ink hierarchy — contrast verified against --bg */
-  --ink-2: #c9c9c9;   /* ~11:1 → AAA normal text */
-  --ink-3: #8a8a8a;   /* ~5.3:1 → AA normal text (muted labels only) */
+  --ink-2: #4d3a26;
+  --ink-3: #6a5336;
 
-  /* Signal green — accent / actions / live Morse */
-  --signal: #22c55e;
-  --signal-ink: #052e16;
-  --signal-text: #4ade80;
-  --signal-glow: rgba(74, 222, 128, 0.35);
+  /* Signal — verdigris: actions and live Morse */
+  --signal: #2c6a50;
+  --signal-ink: #f7eed9;
+  --signal-text: #215741;
+  --signal-glow: transparent;
 
-  /* Danger — destructive states */
-  --danger: #f87171;
-  --danger-ink: #450a0a;
-  --danger-text: #fca5a5;
+  /* Danger — oxblood */
+  --danger: #8e2b1c;
+  --danger-ink: #f7eed9;
+  --danger-text: #8e2b1c;
 
-  /* Warn — warnings / unsupported chars */
-  --warn: #fbbf24;
+  /* Warn — burnt umber */
+  --warn: #7a4f12;
 
-  /* Focus ring — matches primary text for visibility on dark bg */
-  --ring: #f5f5f5;
+  --ring: #2a1c10;
+
+  /* Board — dit lamps verdigris, dah lamps vermilion, the target Prussian blue */
+  --board-off: #e0cfa6;
+  --led-dit: #1f7a55;
+  --led-dah: #bf3019;
+  --led-target: #27477a;
+
+  /* Sheet — fibre strength and the browning at its edges */
+  --paper-grain: 1;
+  --paper-edge: rgba(176, 128, 66, 0.55);
 
   /* Motion — shared UI curve for entrances (settles, never starts slow).
-     Light theme needs no override: easings carry no color. */
+     The night theme needs no override: easings carry no color. */
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
 }
 
-/* Light theme — inverted anchors, same token names. */
-html.light {
-  color-scheme: light;
+/* Night — the same sheet under a low lamp, same token names. */
+html.dark {
+  color-scheme: dark;
 
-  --bg: #f5f5f5;
-  --ink: #151515;
+  --bg: #201810;
+  --ink: #efe3c8;
 
-  --surface: #ffffff;
-  --surface-2: #e5e5e5;
+  --surface: #2a2016;
+  --surface-2: #372b1e;
 
-  --edge: #c9c9c9;
-  --edge-strong: #8a8a8a;
+  --edge: #4c3d2b;
+  --edge-strong: #8a7558;
 
-  --ink-2: #4a4a4a;
-  --ink-3: #6b6b6b;   /* ~4.9:1 → AA normal text */
+  --ink-2: #d3c3a2;
+  --ink-3: #a8967a;
 
-  --signal: #15803d;
-  --signal-ink: #ffffff;
-  --signal-text: #166534;
-  --signal-glow: transparent;
+  --signal: #6fbf97;
+  --signal-ink: #14241b;
+  --signal-text: #8fd1ad;
+  --signal-glow: rgba(143, 209, 173, 0.3);
 
-  --danger: #dc2626;
-  --danger-ink: #ffffff;
-  --danger-text: #b91c1c;
+  --danger: #e08a70;
+  --danger-ink: #2a0e07;
+  --danger-text: #eba58f;
 
-  --warn: #b45309;
+  --warn: #e0b45a;
 
-  --ring: #151515;
+  --ring: #efe3c8;
+
+  --board-off: #342919;
+  --led-dit: #6fd6a0;
+  --led-dah: #f0654a;
+  --led-target: #e0b45a;
+
+  --paper-grain: 0.3;
+  --paper-edge: rgba(0, 0, 0, 0.55);
 }
 
 @layer base {
@@ -119,6 +139,25 @@ html.light {
     font-variant-ligatures: none;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+  }
+
+  /* The sheet: fibre and stains under everything, browning at the edges. */
+  body::before,
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+  }
+
+  body::before {
+    background-image: url('./paper.svg');
+    opacity: var(--paper-grain);
+  }
+
+  body::after {
+    background-image: radial-gradient(ellipse at center, transparent 58%, var(--paper-edge) 125%);
   }
 
   * {
@@ -196,6 +235,39 @@ html.light {
   text-shadow: 0 0 18px var(--signal-glow);
 }
 
+/* A printed form's double rule around a control. Sits outside its box, so it takes no space. */
+@utility double-rule {
+  box-shadow:
+    0 0 0 2px var(--bg),
+    0 0 0 3px var(--rule, var(--ink));
+}
+
+/* A form field with one box per character: every character plus a gap is 2ch. */
+@utility input-cells {
+  letter-spacing: 1ch;
+  text-indent: 0.5ch;
+  background-image: repeating-linear-gradient(
+    90deg,
+    transparent 0 calc(2ch - 1px),
+    var(--edge-strong) calc(2ch - 1px) 2ch
+  );
+  background-origin: content-box;
+  background-clip: content-box;
+}
+
+/* Board lamps — wet ink bleeding a little into the sheet, only while lit. */
+@utility glow-dit {
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--led-dit) 55%, transparent));
+}
+
+@utility glow-dah {
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--led-dah) 55%, transparent));
+}
+
+@utility glow-target {
+  filter: drop-shadow(0 0 2px color-mix(in srgb, var(--led-target) 45%, transparent));
+}
+
 /**
  * Arrival motion — one boot cascade on first paint, one per view switch.
  * transform/opacity only, replays on remount, and the global reduced-motion
@@ -214,6 +286,19 @@ html.light {
 /* First paint (shell chrome): slightly fuller beat — load is occasional. */
 @utility boot-in {
   animation: rise-in 180ms var(--ease-out) both;
+}
+
+/* A board lamp landing like a rubber stamp. Tied to the key that lit it. */
+@keyframes stamp {
+  from {
+    transform: scale(1.3);
+  }
+}
+
+@utility stamp {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: stamp 110ms var(--ease-out);
 }
 
 /* View switch (frequent input): near-imperceptible. */

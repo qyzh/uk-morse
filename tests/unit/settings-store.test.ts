@@ -24,7 +24,7 @@ describe('settings store (M2, PLAN.md §3.5)', () => {
       volume: 0.6,
       muted: false,
       autoCommitMs: 700,
-      theme: 'dark',
+      theme: 'light',
     })
   })
 
@@ -84,7 +84,7 @@ describe('settings store (M2, PLAN.md §3.5)', () => {
     const saved = readPersisted()
     expect(saved.state).toMatchObject({ wpm: 22, toneHz: 600 })
     expect(saved.state).not.toHaveProperty('setWpm')
-    expect(saved.version).toBe(1)
+    expect(saved.version).toBe(2)
   })
 
   it('rehydrates persisted settings on creation', async () => {
@@ -92,7 +92,7 @@ describe('settings store (M2, PLAN.md §3.5)', () => {
       'morse-app:v1',
       JSON.stringify({
         state: { wpm: 25, toneHz: 500, volume: 0.2, muted: true, autoCommitMs: 500, theme: 'light' },
-        version: 1,
+        version: 2,
       }),
     )
     vi.resetModules()
@@ -107,8 +107,19 @@ describe('settings store (M2, PLAN.md §3.5)', () => {
     })
   })
 
+  it('moves version 1 settings onto paper and keeps a later choice of night', async () => {
+    globalThis.localStorage.setItem('morse-app:v1', JSON.stringify({ state: { wpm: 25, theme: 'dark' }, version: 1 }))
+    vi.resetModules()
+    const before = (await importStore()).useSettingsStore.getState()
+    expect(before).toMatchObject({ wpm: 25, theme: 'light' })
+
+    globalThis.localStorage.setItem('morse-app:v1', JSON.stringify({ state: { theme: 'dark' }, version: 2 }))
+    vi.resetModules()
+    expect((await importStore()).useSettingsStore.getState().theme).toBe('dark')
+  })
+
   it('fills keys missing from storage with defaults on rehydration', async () => {
-    globalThis.localStorage.setItem('morse-app:v1', JSON.stringify({ state: { wpm: 20 }, version: 1 }))
+    globalThis.localStorage.setItem('morse-app:v1', JSON.stringify({ state: { wpm: 20 }, version: 2 }))
     vi.resetModules()
     const { useSettingsStore } = await importStore()
     expect(useSettingsStore.getState()).toMatchObject({
@@ -117,7 +128,7 @@ describe('settings store (M2, PLAN.md §3.5)', () => {
       volume: 0.6,
       muted: false,
       autoCommitMs: 700,
-      theme: 'dark',
+      theme: 'light',
     })
   })
 })

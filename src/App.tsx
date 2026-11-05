@@ -51,10 +51,10 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    document.documentElement.classList.toggle('light', theme === 'light')
+    document.documentElement.classList.toggle('dark', theme === 'dark')
     document
       .querySelector('meta[name="theme-color"]')
-      ?.setAttribute('content', theme === 'light' ? '#f5f5f5' : '#151515')
+      ?.setAttribute('content', theme === 'light' ? '#f1e4c5' : '#201810')
   }, [theme])
 
   useEffect(() => {
@@ -63,7 +63,7 @@ export default function App() {
   }, [view])
 
   return (
-    <div className="min-h-dvh overflow-x-clip bg-bg font-sans text-ink">
+    <div className="min-h-dvh overflow-x-clip font-sans text-ink">
       <div className="relative mx-auto flex min-h-dvh w-full max-w-5xl flex-col md:border-x md:border-edge">
       <a
         href="#konten"
@@ -76,7 +76,7 @@ export default function App() {
         Langsung ke konten
       </a>
 
-      <header className="boot-in sticky top-0 z-20 border-b border-edge bg-bg/90 backdrop-blur">
+      <header className="boot-in sticky top-0 z-20 border-b border-edge bg-bg/70 backdrop-blur">
         <PlusMark className="-bottom-2.25 -left-1.25 hidden md:block" />
         <PlusMark className="-bottom-2.25 -right-1.25 hidden md:block" />
         <div className="flex h-14 items-center gap-4 px-4 md:px-8 lg:gap-6">
@@ -149,7 +149,7 @@ export default function App() {
 
       <nav
         aria-label="Navigasi utama"
-        className="fixed inset-x-0 bottom-0 z-20 border-t border-edge bg-bg/95 pb-[env(safe-area-inset-bottom)] backdrop-blur pointer-fine:md:hidden"
+        className="fixed inset-x-0 bottom-0 z-20 border-t border-edge bg-bg/85 pb-[env(safe-area-inset-bottom)] backdrop-blur pointer-fine:md:hidden"
       >
         <div className="grid grid-cols-5">
           {VIEWS.map((v) => {
