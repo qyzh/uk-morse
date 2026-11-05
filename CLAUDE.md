@@ -49,6 +49,10 @@ Vitest runs in node with no DOM. `tests/setup.ts` stubs `localStorage` and `wind
 
 `tests/unit/contrast.test.ts` parses `src/styles/index.css` and enforces WCAG contrast on the color tokens. It expects 6-digit hex values inside the `:root` and `html.light` token blocks.
 
+## Versioning
+
+The version lives only in `package.json`, and there are no tags or changelog. Bump it in the commit or merge that ships the change: patch for fixes, minor for features. `npm version <x.y.z> --no-git-tag-version` keeps `package-lock.json` in step.
+
 ## Conventions
 
 - Product UI copy is Indonesian. Code and comments are English.
