@@ -302,6 +302,19 @@ describe('auto-commit', () => {
     expect(onCommit).not.toHaveBeenCalled()
   })
 
+  it('starts the wait after the element\'s feedback, however long that takes', () => {
+    // The first beep creates the AudioContext, which blocks the main thread.
+    const { input, onCommit } = setup({
+      autoCommitMs: () => 100,
+      onElement: () => void vi.advanceTimersByTime(500),
+    })
+    input.dit()
+    expect(onCommit).not.toHaveBeenCalled()
+    expect(input.getBuffer()).toBe('.')
+    vi.advanceTimersByTime(100)
+    expect(onCommit).toHaveBeenCalledOnce()
+  })
+
   it('uses the setting current at each element', () => {
     let delay = 700
     const { input, onCommit } = setup({ autoCommitMs: () => delay })

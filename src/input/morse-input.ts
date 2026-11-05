@@ -96,8 +96,9 @@ export function createMorseInput(options: MorseInputOptions): MorseInput {
 
   const key = (element: '.' | '-') => {
     if (gate !== 'open') return
-    setBuffer(buffer + element)
+    // Feedback first: starting audio can block for longer than the auto-commit wait.
     options.onElement?.(element === '.' ? 'dit' : 'dah')
+    setBuffer(buffer + element)
   }
 
   const dit = () => key('.')
