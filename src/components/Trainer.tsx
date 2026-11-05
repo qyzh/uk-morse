@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { decodeCode } from '../core/decode'
 import { WORD_GAP, transcriptMorse, transcriptText } from '../core/transcript'
 import type { Transcript } from '../core/transcript'
-import { useArrowBuffer } from '../hooks/useArrowBuffer'
 import { useMorseAudio } from '../hooks/useMorseAudio'
+import { useMorseKeyboard } from '../hooks/useMorseKeyboard'
+import { createMorseInput } from '../input/morse-input'
 import { useSettingsStore } from '../store/settingsStore'
 import { PlayIcon, XIcon } from './icons'
 import { Button, InputPad, Kbd, Led, PageTitle } from './ui'
@@ -17,49 +18,46 @@ const SHORTCUTS: Array<[string, string]> = [
   ['Esc', 'reset'],
 ]
 
+/** A flag that lowers itself `ms` after it was last raised. */
+function useFlash(ms: number) {
+  const [raised, setRaised] = useState(0)
+
+  useEffect(() => {
+    if (raised === 0) return
+    const id = window.setTimeout(() => setRaised(0), ms)
+    return () => window.clearTimeout(id)
+  }, [raised, ms])
+
+  const setFlash = (on: boolean) => setRaised((n) => (on ? n + 1 : 0))
+  return [raised > 0, setFlash] as const
+}
+
 export function Trainer() {
-  const autoCommitMs = useSettingsStore((s) => s.autoCommitMs)
   const { play, beep } = useMorseAudio()
   const [transcript, setTranscript] = useState<Transcript>([])
-  const [lit, setLit] = useState(false)
-  const [invalid, setInvalid] = useState(false)
-  const flashTimer = useRef<number | undefined>(undefined)
-  const invalidTimer = useRef<number | undefined>(undefined)
+  const [lit, setLit] = useFlash(200)
+  const [invalid, setInvalid] = useFlash(1400)
 
-  const flash = useCallback(() => {
-    setLit(true)
-    window.clearTimeout(flashTimer.current)
-    flashTimer.current = window.setTimeout(() => setLit(false), 200)
-  }, [])
-
-  useEffect(
-    () => () => {
-      window.clearTimeout(flashTimer.current)
-      window.clearTimeout(invalidTimer.current)
-    },
-    [],
+  const [input] = useState(() =>
+    createMorseInput({
+      autoCommitMs: () => useSettingsStore.getState().autoCommitMs,
+      onElement: (kind) => {
+        beep(kind)
+        setLit(true)
+      },
+      onCommit: (entry) => {
+        if (entry === null) {
+          setInvalid(true)
+          return
+        }
+        setInvalid(false)
+        setTranscript((t) => [...t, entry])
+      },
+      onWordGap: () => setTranscript((t) => [...t, WORD_GAP]),
+      onBackspaceEmpty: () => setTranscript((t) => t.slice(0, -1)),
+    }),
   )
-
-  const { buffer, push, commit, enter, backspace } = useArrowBuffer({
-    enabled: true,
-    autoCommitMs,
-    onBeep: (kind) => {
-      beep(kind)
-      flash()
-    },
-    onCommit: (entry) => {
-      if (entry === null) {
-        setInvalid(true)
-        window.clearTimeout(invalidTimer.current)
-        invalidTimer.current = window.setTimeout(() => setInvalid(false), 1400)
-        return
-      }
-      setInvalid(false)
-      setTranscript((t) => [...t, entry])
-    },
-    onEnter: () => setTranscript((t) => [...t, WORD_GAP]),
-    onBackspaceEmpty: () => setTranscript((t) => t.slice(0, -1)),
-  })
+  const buffer = useMorseKeyboard(input)
 
   const preview = buffer ? decodeCode(buffer) : null
   const empty = transcript.length === 0
@@ -125,12 +123,12 @@ export function Trainer() {
 
         <InputPad
           className="mt-6 pointer-fine:md:hidden"
-          onDit={() => push('.')}
-          onDah={() => push('-')}
-          onCommit={commit}
+          onDit={input.dit}
+          onDah={input.dah}
+          onCommit={input.commit}
           commitDisabled={buffer.length === 0}
-          onSpace={enter}
-          onBackspace={backspace}
+          onSpace={input.wordGap}
+          onBackspace={input.backspace}
         />
       </section>
 

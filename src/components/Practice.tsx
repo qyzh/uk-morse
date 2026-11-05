@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { MORSE_LIST, type MorseEntry } from '../core/morse-data'
-import { useArrowBuffer } from '../hooks/useArrowBuffer'
 import { useMorseAudio } from '../hooks/useMorseAudio'
+import { useMorseKeyboard } from '../hooks/useMorseKeyboard'
+import { createMorseInput } from '../input/morse-input'
 import { useSettingsStore } from '../store/settingsStore'
 import { PlayIcon, RotateIcon } from './icons'
 import { Button, Feedback, InputPad, Kbd, PageTitle, ScoreStrip, Segmented } from './ui'
@@ -28,9 +29,37 @@ const MODES = [
 ] as const satisfies ReadonlyArray<{ value: Mode; label: string }>
 
 export function Practice() {
-  const autoCommitMs = useSettingsStore((s) => s.autoCommitMs)
   const { play, beep, stop } = useMorseAudio()
   const [mode, setMode] = useState<Mode>('encode')
+
+  // The inputs outlive renders; their commits need the current targets.
+  const [commits] = useState(() => {
+    type Handlers = Record<'encode' | 'speed', (entry: MorseEntry | null) => void>
+    let handlers: Handlers | undefined
+    return {
+      set: (next: Handlers) => {
+        handlers = next
+      },
+      encode: (entry: MorseEntry | null) => handlers?.encode(entry),
+      speed: (entry: MorseEntry | null) => handlers?.speed(entry),
+    }
+  })
+  const [encInput] = useState(() =>
+    createMorseInput({
+      autoCommitMs: () => useSettingsStore.getState().autoCommitMs,
+      onElement: beep,
+      onCommit: commits.encode,
+    }),
+  )
+  const [speedInput] = useState(() =>
+    createMorseInput({
+      autoCommitMs: () => useSettingsStore.getState().autoCommitMs,
+      onElement: beep,
+      onCommit: commits.speed,
+    }),
+  )
+  const encBuffer = useMorseKeyboard(encInput)
+  const speedBuffer = useMorseKeyboard(speedInput)
 
   /* ---------- Encode drill ---------- */
   const [encTarget, setEncTarget] = useState(randomEntry)
@@ -41,37 +70,26 @@ export function Practice() {
   const encLockedRef = useRef(false)
   const encTimer = useRef<number | undefined>(undefined)
 
-  const {
-    buffer: encBuffer,
-    push: encPush,
-    commit: encCommit,
-    enter: encEnter,
-    backspace: encBackspace,
-  } = useArrowBuffer({
-    enabled: mode === 'encode' && !encLocked,
-    autoCommitMs,
-    onBeep: beep,
-    onCommit: (entry) => {
-      if (encLockedRef.current) return
-      encLockedRef.current = true
-      setEncLocked(true)
-      setEncTotal((t) => t + 1)
-      if (entry?.char === encTarget.char) {
-        setEncScore((s) => s + 1)
-        setEncFeedback({ kind: 'ok', text: 'Benar!' })
-      } else {
-        setEncFeedback({ kind: 'bad', text: `Salah — target ${encTarget.char}` })
-      }
-      window.clearTimeout(encTimer.current)
-      encTimer.current = window.setTimeout(() => {
-        stop()
-        setEncTarget(randomEntry())
-        setEncFeedback(null)
-        setEncLocked(false)
-        encLockedRef.current = false
-      }, 450)
-    },
-  })
+  const commitEncode = (entry: MorseEntry | null) => {
+    if (encLockedRef.current) return
+    encLockedRef.current = true
+    setEncLocked(true)
+    setEncTotal((t) => t + 1)
+    if (entry?.char === encTarget.char) {
+      setEncScore((s) => s + 1)
+      setEncFeedback({ kind: 'ok', text: 'Benar!' })
+    } else {
+      setEncFeedback({ kind: 'bad', text: `Salah — target ${encTarget.char}` })
+    }
+    window.clearTimeout(encTimer.current)
+    encTimer.current = window.setTimeout(() => {
+      stop()
+      setEncTarget(randomEntry())
+      setEncFeedback(null)
+      setEncLocked(false)
+      encLockedRef.current = false
+    }, 450)
+  }
   const encMobile = mode === 'encode'
 
   /* ---------- Decode drill ---------- */
@@ -144,27 +162,24 @@ export function Practice() {
     return () => window.clearInterval(id)
   }, [speedActive, mode])
 
-  const {
-    buffer: speedBuffer,
-    push: speedPush,
-    commit: speedCommit,
-    enter: speedEnter,
-    backspace: speedBackspace,
-    reset: speedReset,
-  } = useArrowBuffer({
-    enabled: mode === 'speed' && speedActive,
-    autoCommitMs,
-    onBeep: beep,
-    onCommit: (entry) => {
-      setSpeedTotal((t) => t + 1)
-      if (entry?.char === speedTarget.char) setSpeedScore((s) => s + 1)
-      setSpeedTarget(randomEntry())
-    },
+  const commitSpeed = (entry: MorseEntry | null) => {
+    setSpeedTotal((t) => t + 1)
+    if (entry?.char === speedTarget.char) setSpeedScore((s) => s + 1)
+    setSpeedTarget(randomEntry())
+  }
+
+  useEffect(() => {
+    commits.set({ encode: commitEncode, speed: commitSpeed })
   })
+
+  useEffect(() => {
+    encInput.setGate(mode !== 'encode' ? 'closed' : encLocked ? 'held' : 'open')
+    speedInput.setGate(mode === 'speed' && speedActive ? 'open' : 'closed')
+  }, [encInput, speedInput, mode, encLocked, speedActive])
 
   const startSpeed = () => {
     stop()
-    speedReset()
+    speedInput.reset()
     setSpeedScore(0)
     setSpeedTotal(0)
     setSpeedTime(SPEED_SECONDS)
@@ -222,12 +237,12 @@ export function Practice() {
           {encMobile && (
             <InputPad
               className="pointer-fine:md:hidden"
-              onDit={() => encPush('.')}
-              onDah={() => encPush('-')}
-              onCommit={encCommit}
+              onDit={encInput.dit}
+              onDah={encInput.dah}
+              onCommit={encInput.commit}
               commitDisabled={encBuffer.length === 0 || encLocked}
-              onSpace={encEnter}
-              onBackspace={encBackspace}
+              onSpace={encInput.wordGap}
+              onBackspace={encInput.backspace}
             />
           )}
         </>
@@ -362,12 +377,12 @@ export function Practice() {
           {speedActive && (
             <InputPad
               className="pointer-fine:md:hidden"
-              onDit={() => speedPush('.')}
-              onDah={() => speedPush('-')}
-              onCommit={speedCommit}
+              onDit={speedInput.dit}
+              onDah={speedInput.dah}
+              onCommit={speedInput.commit}
               commitDisabled={speedBuffer.length === 0}
-              onSpace={speedEnter}
-              onBackspace={speedBackspace}
+              onSpace={speedInput.wordGap}
+              onBackspace={speedInput.backspace}
             />
           )}
         </>

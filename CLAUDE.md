@@ -15,7 +15,7 @@ npm run lint                             # eslint
 npm test                                 # vitest, single run
 npx vitest run tests/unit/timing.test.ts # one test file
 npx vitest run -t 'wpmOf'                # tests matching a name
-npm run coverage                         # covers src/core, src/audio, src/store only
+npm run coverage                         # covers src/core, src/audio, src/input, src/store only
 npm run e2e                              # build, then Playwright against vite preview
 ```
 
@@ -37,7 +37,7 @@ Dependencies point one way: `core` ← `audio` ← `hooks` ← `components`. `sr
 - **Transcript:** `core/transcript.ts` keeps the Trainer's output as entries and word gaps rather than a string, so a prosign replays as one code and Backspace removes it whole.
 - **Timing and audio:** `core/timing.ts` implements PARIS timing (dit = 1200 / WPM ms). `audio/morse-audio.ts` turns that into `TimingEvent`s and schedules Web Audio oscillators ahead of time rather than using JS timers per tone. `MorseAudio` takes settings as a function, read at each sound, and an injectable `AudioContext` factory so tests can fake it. It creates the context on the first sound to satisfy autoplay policy.
 - **`useMorseAudio`:** owns the app's single `MorseAudio`, so two sounds can't overlap: new playback replaces what's sounding, and a key-press beep cuts playback. Mute lives in the engine, and the hook stops audio when a view unmounts or mute turns on.
-- **`useArrowBuffer`:** the Morse input model. `←` dit, `→` dah, Space commit, Enter word break, Backspace delete, Esc reset. It listens on `window` and also returns the same actions for the touch pad (`InputPad`), so keyboard and touch stay identical. The buffer lives in a ref and handlers mutate it directly, keeping side effects out of `setState` updaters so StrictMode can't double-commit. `Practice` runs two instances, gated by `enabled`; only one may be enabled at a time. The text-entry and interactive target guards exist so fields and focused buttons keep their keys (`tests/unit/keyboard-guard.test.ts`).
+- **Morse input:** `input/morse-input.ts` is the keying model. `←` dit, `→` dah, Space commit, Enter word gap, Backspace delete, Esc reset. It's framework-free, so whole key sequences run in tests, and the pad calls the same actions as the keyboard. `useMorseKeyboard` is the thin adapter that connects it to `window` and React. A gate controls it: `open`, `held` (keys swallowed and ignored) or `closed` (keys left to the page). Moving off `open` drops the buffer. Text fields keep every key, and focused controls keep Space and Enter unless a letter is mid-way through being keyed.
 - **State:** `store/settingsStore.ts` persists to `morse-app:v1`. Setters clamp their values. When adding a setting, also add it to `partialize`, or it won't persist. `store/progressStore.ts` (`morse-app:progress:v1`) is tested but no component uses it yet: `Practice` keeps scores in local state, and they reset on reload.
 - **Routing:** hash-based and hand-rolled in `App.tsx` (`#/trainer`, `#/dictionary`, ...), driven by the `VIEWS` array. There is no router dependency. `key={view}` on the view wrapper remounts the view and replays the `view-in` animation, so view-local state doesn't survive navigation.
 - **PWA:** `public/sw.js` is hand-written and registers in production builds only. Bump `VERSION` when changing its caching. `public/_headers` sets the Cloudflare Pages cache policy.
