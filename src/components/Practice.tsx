@@ -7,8 +7,9 @@ import type { Drill, PracticeMode } from '../practice/practice-session'
 import { SPEED_DURATIONS, useProgressStore } from '../store/progressStore'
 import type { SpeedDuration } from '../store/progressStore'
 import { useSettingsStore } from '../store/settingsStore'
+import { cx } from './cx'
 import { CheckIcon, PlayIcon, RotateIcon } from './icons'
-import { Button, Feedback, InputPad, Kbd, PageTitle, Readouts, ScoreStrip, Segmented } from './ui'
+import { Button, FIELD, Feedback, InputPad, Kbd, PageTitle, Readouts, ScoreStrip, Segmented } from './ui'
 import type { FeedbackState } from './ui'
 
 function formatTime(seconds: number): string {
@@ -158,7 +159,7 @@ export function Practice() {
               spellCheck={false}
               autoCapitalize="characters"
               placeholder="?"
-              className="h-11 w-24 border-0 border-b border-edge-strong bg-transparent text-center font-mono text-lg uppercase text-ink transition-colors duration-150 placeholder:text-ink-3 hover:border-ink-3 focus:border-ink-3 disabled:opacity-50"
+              className={cx(FIELD, 'h-11 w-24 text-center font-mono text-lg uppercase disabled:opacity-50')}
             />
             <Button type="submit" variant="primary" disabled={decodeLocked || decodeAnswer.trim() === ''}>
               Periksa

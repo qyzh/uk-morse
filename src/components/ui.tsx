@@ -5,23 +5,25 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
 import { accuracy } from '../core/drills'
 import { cx } from './cx'
-import { CheckIcon, XIcon } from './icons'
 
 export type FeedbackState = { kind: 'ok' | 'bad'; text: string } | null
 
 /* ---------------- Button ---------------- */
 
-type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'dangerGhost'
+type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'dangerGhost' | 'row' | 'cell'
 type ButtonSize = 'sm' | 'md' | 'lg' | 'icon' | 'iconSm' | 'none'
 
 const VARIANTS: Record<ButtonVariant, string> = {
-  primary: 'bg-signal text-signal-ink hover:brightness-110 active:brightness-95',
-  secondary:
-    'border border-edge-strong text-ink hover:bg-surface-2 active:bg-surface-2/70',
-  ghost: 'text-ink-2 hover:bg-surface-2 hover:text-ink',
-  danger: 'bg-danger text-danger-ink hover:brightness-110 active:brightness-95',
+  primary: 'double-rule bg-ink text-bg hover:bg-ink-2',
+  secondary: 'double-rule border border-ink text-ink hover:bg-surface-2 active:bg-surface-2/70',
+  ghost: 'text-ink-2 underline decoration-edge-strong underline-offset-4 hover:bg-surface-2 hover:text-ink',
+  danger: 'double-rule bg-danger text-danger-ink [--rule:var(--danger)] hover:brightness-110 active:brightness-95',
   dangerGhost:
-    'border border-danger/40 text-danger-text hover:border-danger/60 hover:bg-danger/10',
+    'double-rule border border-danger text-danger-text [--rule:var(--danger)] hover:bg-danger/10',
+  /** A filled row of a form, ruled by the form around it. */
+  row: 'bg-ink text-bg hover:bg-ink-2',
+  /** One box of a form row. */
+  cell: 'text-ink hover:bg-surface-2 active:bg-surface-2/70',
 }
 
 const SIZES: Record<ButtonSize, string> = {
@@ -61,7 +63,7 @@ export function Button({
 
 /* ---------------- Surfaces ---------------- */
 
-/** Mode switch / theme picker — text tabs with a prompt on the active one. */
+/** Mode switch / theme picker — a form's tick boxes. */
 export function Segmented<T extends string>({
   label,
   value,
@@ -88,8 +90,8 @@ export function Segmented<T extends string>({
               active ? 'text-ink' : 'text-ink-3 hover:text-ink',
             )}
           >
-            <span aria-hidden="true" className="w-[1ch] shrink-0 select-none text-ink-3">
-              {active ? '>' : ''}
+            <span aria-hidden="true" className="shrink-0 select-none">
+              [{active ? 'x' : '\u00a0'}]
             </span>
             {option.icon}
             {option.label}
@@ -105,7 +107,7 @@ export function Segmented<T extends string>({
 /** Page headline with terminal prompt. */
 export function PageTitle({ children }: { children: ReactNode }) {
   return (
-    <h1 className="text-3xl font-medium tracking-tight text-balance sm:text-4xl">
+    <h1 className="text-3xl font-bold tracking-tight text-balance sm:text-4xl">
       <span aria-hidden="true" className="mr-2 select-none text-ink-3">
         &gt;
       </span>
@@ -139,7 +141,7 @@ export function Led({ on, className }: { on: boolean; className?: string }) {
   )
 }
 
-/** Drill feedback — icon + text + color, never color alone. */
+/** Drill feedback — tick + text + color, never color alone. */
 export function Feedback({ state, className }: { state: FeedbackState; className?: string }) {
   return (
     <p
@@ -152,8 +154,11 @@ export function Feedback({ state, className }: { state: FeedbackState; className
         className,
       )}
     >
-      {state?.kind === 'ok' && <CheckIcon className="size-4 shrink-0" />}
-      {state?.kind === 'bad' && <XIcon className="size-4 shrink-0" />}
+      {state && (
+        <span aria-hidden="true" className="shrink-0 select-none">
+          [{state.kind === 'ok' ? 'x' : '!'}]
+        </span>
+      )}
       {state?.text}
     </p>
   )
@@ -190,6 +195,34 @@ export function ScoreStrip({ score, total }: { score: number; total: number }) {
   )
 }
 
+/** A form text field: one ruled box. */
+export const FIELD =
+  'border border-ink bg-transparent text-ink transition-colors duration-150 placeholder:text-ink-3 hover:bg-surface/50'
+
+/** The dit and dah keys, on their own where nothing needs committing. Ruled by the form around them. */
+export function ElementKeys({
+  onDit,
+  onDah,
+  className,
+}: {
+  onDit: () => void
+  onDah: () => void
+  className?: string
+}) {
+  return (
+    <div className={cx('grid grid-cols-2 divide-x divide-ink', className)}>
+      <Button variant="cell" size="none" onClick={onDit} aria-label="Tambah dit" className="h-16 flex-col gap-0.5">
+        <span className="font-mono text-3xl leading-none">·</span>
+        <span className="text-sm normal-case tracking-normal text-ink-3">dit</span>
+      </Button>
+      <Button variant="cell" size="none" onClick={onDah} aria-label="Tambah dah" className="h-16 flex-col gap-0.5">
+        <span className="font-mono text-3xl leading-none">−</span>
+        <span className="text-sm normal-case tracking-normal text-ink-3">dah</span>
+      </Button>
+    </div>
+  )
+}
+
 /** Touch input pad — the mobile replacement for arrow keys. */
 export function InputPad({
   onDit,
@@ -209,37 +242,20 @@ export function InputPad({
   className?: string
 }) {
   return (
-    <div role="group" aria-label="Input morse via tombol" className={cx('grid gap-2.5', className)}>
-      <div className="grid grid-cols-2 gap-2.5">
-        <Button
-          variant="secondary"
-          size="none"
-          onClick={onDit}
-          aria-label="Tambah dit"
-          className="h-16 flex-col gap-0.5"
-        >
-          <span className="font-mono text-3xl leading-none">·</span>
-          <span className="text-sm normal-case tracking-normal text-ink-3">dit</span>
-        </Button>
-        <Button
-          variant="secondary"
-          size="none"
-          onClick={onDah}
-          aria-label="Tambah dah"
-          className="h-16 flex-col gap-0.5"
-        >
-          <span className="font-mono text-3xl leading-none">−</span>
-          <span className="text-sm normal-case tracking-normal text-ink-3">dah</span>
-        </Button>
-      </div>
-      <div className="grid grid-cols-3 gap-2.5">
-        <Button variant="secondary" size="none" onClick={onCommit} disabled={commitDisabled} className="h-11 text-sm uppercase tracking-[0.08em]">
+    <div
+      role="group"
+      aria-label="Input morse via tombol"
+      className={cx('divide-y divide-ink border border-ink', className)}
+    >
+      <ElementKeys onDit={onDit} onDah={onDah} />
+      <div className="grid grid-cols-3 divide-x divide-ink">
+        <Button variant="cell" size="none" onClick={onCommit} disabled={commitDisabled} className="h-11 text-sm uppercase tracking-[0.08em]">
           Commit
         </Button>
-        <Button variant="secondary" size="none" onClick={onSpace} className="h-11 text-sm uppercase tracking-[0.08em]">
+        <Button variant="cell" size="none" onClick={onSpace} className="h-11 text-sm uppercase tracking-[0.08em]">
           Spasi
         </Button>
-        <Button variant="secondary" size="none" onClick={onBackspace} className="h-11 text-sm uppercase tracking-[0.08em]">
+        <Button variant="cell" size="none" onClick={onBackspace} className="h-11 text-sm uppercase tracking-[0.08em]">
           Hapus
         </Button>
       </div>

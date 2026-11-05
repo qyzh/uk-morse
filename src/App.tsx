@@ -85,7 +85,10 @@ export default function App() {
             <span aria-hidden="true" className="ml-1.5 inline-block h-[0.7em] w-[0.5em] bg-ink" />
           </a>
 
-          <nav aria-label="Navigasi utama" className="ml-auto hidden items-center gap-4 pointer-fine:md:flex">
+          <nav
+            aria-label="Navigasi utama"
+            className="ml-auto hidden divide-x divide-ink border border-ink pointer-fine:md:flex"
+          >
             {VIEWS.map((v) => {
               const active = v.id === view
               return (
@@ -94,17 +97,11 @@ export default function App() {
                   href={`#/${v.id}`}
                   aria-current={active ? 'page' : undefined}
                   className={cx(
-                    'inline-flex h-11 items-center gap-1 text-sm transition-colors duration-150',
-                    active ? 'text-ink' : 'text-ink-3 hover:text-ink',
+                    'inline-flex h-10.5 items-center px-3 text-sm transition-colors duration-150',
+                    active ? 'bg-ink font-bold text-bg' : 'text-ink hover:bg-surface-2',
                   )}
                 >
-                  <span aria-hidden="true" className="hidden text-ink-3/70 lg:inline">
-                    [
-                  </span>
                   {v.label}
-                  <span aria-hidden="true" className="hidden text-ink-3/70 lg:inline">
-                    ]
-                  </span>
                 </a>
               )
             })}
@@ -149,9 +146,9 @@ export default function App() {
 
       <nav
         aria-label="Navigasi utama"
-        className="fixed inset-x-0 bottom-0 z-20 border-t border-edge bg-bg/85 pb-[env(safe-area-inset-bottom)] backdrop-blur pointer-fine:md:hidden"
+        className="fixed inset-x-0 bottom-0 z-20 border-t border-ink bg-bg/85 pb-[env(safe-area-inset-bottom)] backdrop-blur pointer-fine:md:hidden"
       >
-        <div className="grid grid-cols-5">
+        <div className="grid grid-cols-5 divide-x divide-ink">
           {VIEWS.map((v) => {
             const Icon = v.Icon
             const active = v.id === view
@@ -161,8 +158,8 @@ export default function App() {
                 href={`#/${v.id}`}
                 aria-current={active ? 'page' : undefined}
                 className={cx(
-                  'flex h-14 flex-col items-center justify-center gap-0.5 border-t-2 text-[10px] font-medium uppercase tracking-[0.06em] transition-colors duration-150',
-                  active ? 'border-ink text-ink' : 'border-transparent text-ink-3 hover:text-ink',
+                  'flex h-14 flex-col items-center justify-center gap-0.5 text-[10px] font-bold uppercase tracking-[0.06em] transition-colors duration-150',
+                  active ? 'bg-ink text-bg' : 'text-ink hover:bg-surface-2',
                 )}
               >
                 <Icon className="size-5" />

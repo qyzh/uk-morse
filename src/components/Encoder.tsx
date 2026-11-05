@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { encodeText } from '../core/encode'
 import { useMorseAudio } from '../hooks/useMorseAudio'
 import { AlertIcon, CheckIcon, CopyIcon, PlayIcon } from './icons'
-import { Button, PageTitle } from './ui'
+import { cx } from './cx'
+import { Button, FIELD, PageTitle } from './ui'
 
 export function Encoder() {
   const { play } = useMorseAudio()
@@ -46,7 +47,7 @@ export function Encoder() {
           spellCheck={false}
           autoComplete="off"
           placeholder="Contoh: SOS dari kapal"
-          className="w-full resize-y border-0 border-b border-edge-strong bg-transparent py-2 text-base text-ink transition-colors duration-150 placeholder:text-ink-3 hover:border-ink-3 focus:border-ink-3"
+          className={cx(FIELD, 'w-full resize-y px-3 py-2 text-base')}
         />
         {unsupported.length > 0 && (
           <p className="mt-3 flex items-start gap-2 border-l-2 border-warn/60 bg-warn/5 py-2 pl-3 pr-2 text-base text-warn">

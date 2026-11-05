@@ -3,7 +3,7 @@ import { MORSE_LIST, type MorseCategory } from '../core/morse-data'
 import { useMorseAudio } from '../hooks/useMorseAudio'
 import { cx } from './cx'
 import { PlayIcon, SearchIcon, XIcon } from './icons'
-import { Button, PageTitle } from './ui'
+import { Button, FIELD, PageTitle } from './ui'
 
 const CATEGORY_LABEL: Record<MorseCategory, string> = {
   letter: 'Huruf',
@@ -73,7 +73,7 @@ export function Dictionary({ standalone = false }: { standalone?: boolean }) {
 
       <div className="flex flex-col gap-4">
         <div className="relative">
-          <SearchIcon className="pointer-events-none absolute left-0 top-1/2 size-4 -translate-y-1/2 text-ink-3" />
+          <SearchIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-3" />
           <label htmlFor="dict-search" className="sr-only">
             Cari entri morse
           </label>
@@ -85,7 +85,7 @@ export function Dictionary({ standalone = false }: { standalone?: boolean }) {
             placeholder="Cari huruf, pola morse (mis. .-.), atau nama prosign…"
             autoComplete="off"
             spellCheck={false}
-            className="h-10 w-full border-0 border-b border-edge-strong bg-transparent pl-7 pr-11 text-sm text-ink transition-colors duration-150 placeholder:text-ink-3 hover:border-ink-3 focus:border-ink-3"
+            className={cx(FIELD, 'h-11 w-full pl-9 pr-11 text-base placeholder:tracking-normal', query && 'input-cells')}
           />
           {query && (
             <button
@@ -113,8 +113,8 @@ export function Dictionary({ standalone = false }: { standalone?: boolean }) {
                   active ? 'text-ink' : 'text-ink-3 hover:text-ink',
                 )}
               >
-                <span aria-hidden="true" className="w-[1ch] shrink-0 select-none text-ink-3">
-                  {active ? '>' : ''}
+                <span aria-hidden="true" className="shrink-0 select-none">
+                  [{active ? 'x' : '\u00a0'}]
                 </span>
                 {f.label}
                 <span className="font-mono text-[11px] tabular-nums text-ink-3">({counts[f.id]})</span>
