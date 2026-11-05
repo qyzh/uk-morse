@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { ReactElement } from 'react'
+import { Home } from './components/Home'
 import { Trainer } from './components/Trainer'
 import { Dictionary } from './components/Dictionary'
 import { Encoder } from './components/Encoder'
@@ -20,9 +21,10 @@ import {
 import type { IconProps } from './components/icons'
 import { useSettingsStore } from './store/settingsStore'
 
-type ViewId = 'trainer' | 'dictionary' | 'encoder' | 'practice' | 'settings'
+type ViewId = 'home' | 'trainer' | 'dictionary' | 'encoder' | 'practice' | 'settings'
 
-const VIEWS: Array<{ id: ViewId; label: string; title: string; Icon: (props: IconProps) => ReactElement }> = [
+/** Home isn't listed: the wordmark leads there, and it's where the app opens. */
+const VIEWS: Array<{ id: Exclude<ViewId, 'home'>; label: string; title: string; Icon: (props: IconProps) => ReactElement }> = [
   { id: 'trainer', label: 'Trainer', title: 'Trainer', Icon: RadioIcon },
   { id: 'dictionary', label: 'Kamus', title: 'Kamus Morse', Icon: BookIcon },
   { id: 'encoder', label: 'Encoder', title: 'Encoder', Icon: TypeIcon },
@@ -33,7 +35,7 @@ const VIEWS: Array<{ id: ViewId; label: string; title: string; Icon: (props: Ico
 /** Hash routing (M9 polish): deep links + browser back/forward both work. */
 function readHash(): ViewId {
   const id = window.location.hash.replace(/^#\/?/, '')
-  return VIEWS.some((v) => v.id === id) ? (id as ViewId) : 'trainer'
+  return VIEWS.find((v) => v.id === id)?.id ?? 'home'
 }
 
 export default function App() {
@@ -44,7 +46,7 @@ export default function App() {
   const [view, setView] = useState<ViewId>(readHash)
 
   useEffect(() => {
-    if (!window.location.hash) window.history.replaceState(null, '', '#/trainer')
+    if (!window.location.hash) window.history.replaceState(null, '', '#/')
     const onHashChange = () => setView(readHash())
     window.addEventListener('hashchange', onHashChange)
     return () => window.removeEventListener('hashchange', onHashChange)
@@ -80,7 +82,7 @@ export default function App() {
         <PlusMark className="-bottom-2.25 -left-1.25 hidden md:block" />
         <PlusMark className="-bottom-2.25 -right-1.25 hidden md:block" />
         <div className="flex h-14 items-center gap-4 px-4 md:px-8 lg:gap-6">
-          <a href="#/trainer" aria-label="Morse Trainer" className="flex h-11 shrink-0 items-center text-base font-medium tracking-tight">
+          <a href="#/" aria-label="Morse Trainer" className="flex h-11 shrink-0 items-center text-base font-medium tracking-tight">
             morse_trainer
             <span aria-hidden="true" className="ml-1.5 inline-block h-[0.7em] w-[0.5em] bg-ink" />
           </a>
@@ -131,6 +133,7 @@ export default function App() {
 
       <main id="konten" tabIndex={-1} className="w-full flex-1 px-4 py-8 pb-28 outline-none md:px-8 md:py-12 pointer-fine:md:pb-20 pointer-coarse:md:pb-28">
         <div key={view} className="view-in">
+          {view === 'home' && <Home />}
           {view === 'trainer' && (
             <div className="space-y-12">
               <Trainer />

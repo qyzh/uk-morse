@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest'
 import { createElement } from 'react'
 import { renderToString } from 'react-dom/server'
 import App from '../../src/App'
+import { Home } from '../../src/components/Home'
 import { Trainer } from '../../src/components/Trainer'
 import { Dictionary } from '../../src/components/Dictionary'
 import { Encoder } from '../../src/components/Encoder'
@@ -24,6 +25,7 @@ if (typeof globalThis.window !== 'undefined' && !('location' in globalThis.windo
 
 const cases: Array<[string, () => unknown, string]> = [
   ['App', App, 'morse_trainer'],
+  ['Home', Home, 'Mulai main'],
   ['Trainer', Trainer, 'simbol aktif'],
   ['Dictionary', Dictionary, 'entri'],
   ['Encoder', Encoder, 'Putar morse'],
