@@ -1,20 +1,9 @@
 /** Drill + speed-test progress, persisted separately from settings (plan §3.5). */
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { wpmOf } from '../core/drills'
+import type { BoardProgress, PracticeProgress, SpeedDuration } from '../practice/progress'
 
 const STORAGE_KEY = 'morse-app:progress:v1'
-
-export const SPEED_DURATIONS = [30, 60, 120] as const
-
-export type SpeedDuration = (typeof SPEED_DURATIONS)[number]
-
-export type SpeedResult = {
-  wpm: number
-  /** Best WPM for this duration, including this run. */
-  best: number
-  isRecord: boolean
-}
 
 export type ProgressState = {
   /** best WPM achieved per speed-test duration (keyed by duration seconds) */
@@ -24,12 +13,8 @@ export type ProgressState = {
   drillsTotal: number
   bestStreak: number
   bestBoardScore: number
-  recordDrill: (correct: boolean) => void
-  recordStreak: (streak: number) => void
-  recordSpeedTest: (durationS: SpeedDuration, chars: number) => SpeedResult
-  recordBoardScore: (score: number) => { isRecord: boolean }
   reset: () => void
-}
+} & PracticeProgress & BoardProgress
 
 export const useProgressStore = create<ProgressState>()(
   persist(
@@ -49,8 +34,7 @@ export const useProgressStore = create<ProgressState>()(
       recordStreak: (streak) =>
         set((s) => ({ bestStreak: Math.max(s.bestStreak, streak) })),
 
-      recordSpeedTest: (durationS, chars) => {
-        const wpm = Math.round(wpmOf(chars, durationS))
+      recordSpeedTest: (durationS, wpm) => {
         const previousBest = get().bestWpm[durationS]
         const isRecord = wpm > previousBest
         if (isRecord) set((s) => ({ bestWpm: { ...s.bestWpm, [durationS]: wpm } }))

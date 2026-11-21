@@ -1,7 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
 import { decodeCode } from '../core/decode'
-import { WORD_GAP, transcriptMorse, transcriptText } from '../core/transcript'
-import type { Transcript } from '../core/transcript'
+import { createTranscript } from '../core/transcript'
 import { useMorseAudio } from '../hooks/useMorseAudio'
 import { useMorseKeyboard } from '../hooks/useMorseKeyboard'
 import { createMorseInput } from '../input/morse-input'
@@ -34,7 +33,12 @@ function useFlash(ms: number) {
 
 export function Trainer() {
   const { play, beep } = useMorseAudio()
-  const [transcript, setTranscript] = useState<Transcript>([])
+  const [transcript] = useState(() => createTranscript())
+  const { text, morse, empty } = useSyncExternalStore(
+    transcript.subscribe,
+    transcript.getState,
+    transcript.getState,
+  )
   const [lit, setLit] = useFlash(200)
   const [invalid, setInvalid] = useFlash(1400)
 
@@ -51,17 +55,16 @@ export function Trainer() {
           return
         }
         setInvalid(false)
-        setTranscript((t) => [...t, entry])
+        transcript.append(entry)
       },
-      onWordGap: () => setTranscript((t) => [...t, WORD_GAP]),
-      onBackspaceEmpty: () => setTranscript((t) => t.slice(0, -1)),
+      onWordGap: () => transcript.wordGap(),
+      onBackspaceEmpty: () => transcript.backspace(),
     }),
   )
   const buffer = useMorseKeyboard(input)
+  useEffect(() => input.dispose, [input])
 
   const preview = buffer ? decodeCode(buffer) : null
-  const empty = transcript.length === 0
-  const nothingToPlay = transcript.every((item) => item === WORD_GAP)
 
   return (
     <div className="space-y-10">
@@ -141,10 +144,10 @@ export function Trainer() {
             <span>hasil decode</span>
           </h2>
           <div className="flex items-center gap-2">
-            <Button size="sm" variant="ghost" onClick={() => setTranscript([])} disabled={empty}>
+            <Button size="sm" variant="ghost" onClick={() => transcript.clear()} disabled={empty}>
               Bersihkan
             </Button>
-            <Button size="sm" variant="primary" onClick={() => play(transcriptMorse(transcript))} disabled={nothingToPlay}>
+            <Button size="sm" variant="primary" onClick={() => play(morse)} disabled={empty}>
               <PlayIcon className="size-3.5" />
               Putar
             </Button>
@@ -154,7 +157,7 @@ export function Trainer() {
           {empty ? (
             <p className="text-base text-ink-3">Teks hasil decode muncul di sini.</p>
           ) : (
-            <p className="whitespace-pre-wrap wrap-break-word font-mono text-2xl sm:text-3xl">{transcriptText(transcript)}</p>
+            <p className="whitespace-pre-wrap wrap-break-word font-mono text-2xl sm:text-3xl">{text}</p>
           )}
         </div>
       </section>

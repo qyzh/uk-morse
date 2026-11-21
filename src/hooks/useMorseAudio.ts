@@ -1,27 +1,16 @@
-import { useEffect } from 'react'
-import { MorseAudio } from '../audio/morse-audio'
-import { useSettingsStore } from '../store/settingsStore'
+import { createContext, useContext } from 'react'
+import type { AudioControls } from '../audio/audio-session'
 
-const morseAudio = new MorseAudio(() => {
-  const { wpm, toneHz, volume, muted } = useSettingsStore.getState()
-  return { wpm, freq: toneHz, volume, muted }
-})
+export const AudioControlsContext = createContext<AudioControls | null>(null)
 
-useSettingsStore.subscribe((settings) => {
-  if (settings.muted) morseAudio.stop()
-})
-
-const controls = {
-  play: (morse: string) => morseAudio.play(morse),
-  beep: (kind: 'dit' | 'dah') => morseAudio.beep(kind),
-  stop: () => morseAudio.stop(),
+/** The app's three audio controls. Views use them without owning the engine. */
+export function useMorseAudio(): AudioControls {
+  const controls = useContext(AudioControlsContext)
+  if (!controls) throw new Error('useMorseAudio must be used inside AudioProvider')
+  return controls
 }
 
-/**
- * The app's one MorseAudio, so no two sounds can overlap. The controls never
- * change identity, and leaving a view stops its audio.
- */
-export function useMorseAudio() {
-  useEffect(() => controls.stop, [])
-  return controls
+/** Muting cuts anything already sounding. Pure so the app-level policy is testable. */
+export function cutOnMute(controls: AudioControls, muted: boolean): void {
+  if (muted) controls.stop()
 }

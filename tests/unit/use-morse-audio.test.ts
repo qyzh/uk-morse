@@ -1,18 +1,19 @@
 /**
- * The app's shared audio, wired to the real settings store with a fake
- * AudioContext. Views are rendered on the server, so effects don't run here.
+ * The app's shared audio, constructed directly so every test gets its own
+ * engine and fake AudioContext. The app-level mute policy is tested through
+ * the same helper the provider uses.
  */
-import { createElement } from 'react'
-import { renderToString } from 'react-dom/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { createAudioSession } from '../../src/audio/audio-session'
+import { cutOnMute } from '../../src/hooks/useMorseAudio'
 import { FakeAudioContext } from './fake-audio'
 
 let contexts: FakeAudioContext[] = []
+let settings = { wpm: 20, toneHz: 600, volume: 0.5, muted: false }
 
 beforeEach(() => {
-  globalThis.localStorage.clear()
-  vi.resetModules()
   contexts = []
+  settings = { wpm: 20, toneHz: 600, volume: 0.5, muted: false }
   vi.stubGlobal(
     'AudioContext',
     class extends FakeAudioContext {
@@ -24,61 +25,52 @@ beforeEach(() => {
   )
 })
 
-afterEach(() => {
-  vi.unstubAllGlobals()
-})
+afterEach(() => vi.unstubAllGlobals())
 
-async function load() {
-  const { useMorseAudio } = await import('../../src/hooks/useMorseAudio')
-  const { useSettingsStore } = await import('../../src/store/settingsStore')
-  const controlsOfOneView = () => {
-    let controls: ReturnType<typeof useMorseAudio> | undefined
-    const View = () => {
-      controls = useMorseAudio()
-      return null
-    }
-    renderToString(createElement(View))
-    return controls!
-  }
-  return { controlsOfOneView, settings: useSettingsStore }
-}
+const setup = () => createAudioSession(() => settings)
 
-describe('useMorseAudio', () => {
-  it('gives every view the same audio context', async () => {
-    const { controlsOfOneView } = await load()
-    controlsOfOneView().play('.-')
-    controlsOfOneView().play('-.')
+describe('audio session', () => {
+  it('uses one context for every sound', () => {
+    const audio = setup()
+    audio.play('.-')
+    audio.beep('dit')
     expect(contexts).toHaveLength(1)
   })
 
-  it('stops one view\'s playback when another view plays', async () => {
-    const { controlsOfOneView } = await load()
-    controlsOfOneView().play('...')
+  it('cuts the previous playback when something new plays', () => {
+    const audio = setup()
+    audio.play('...')
     const playing = contexts[0]!.oscillators.slice()
-    controlsOfOneView().play('-')
+    audio.play('-')
     expect(playing.filter((osc) => osc.stoppedAt.includes(1.5))).toHaveLength(3)
   })
 
-  it('plays with the current settings', async () => {
-    const { controlsOfOneView, settings } = await load()
-    settings.getState().setToneHz(800)
-    controlsOfOneView().play('.')
+  it('plays with the current settings', () => {
+    const audio = setup()
+    settings.toneHz = 800
+    audio.play('.')
     expect(contexts[0]!.oscillators[0]!.frequency.calls[0]!.value).toBe(800)
   })
 
-  it('muting cuts what is playing', async () => {
-    const { controlsOfOneView, settings } = await load()
-    controlsOfOneView().play('...')
-    settings.getState().setMuted(true)
+  it('makes no sound while muted', () => {
+    settings.muted = true
+    const audio = setup()
+    audio.play('...')
+    audio.beep('dit')
+    expect(contexts).toHaveLength(0)
+  })
+
+  it('cuts playback when muted', () => {
+    const audio = setup()
+    audio.play('...')
+    cutOnMute(audio, true)
     expect(contexts[0]!.oscillators.filter((osc) => osc.stoppedAt.includes(1.5))).toHaveLength(3)
   })
 
-  it('makes no sound while muted', async () => {
-    const { controlsOfOneView, settings } = await load()
-    settings.getState().setMuted(true)
-    const { play, beep } = controlsOfOneView()
-    play('...')
-    beep('dit')
-    expect(contexts).toHaveLength(0)
+  it('leaves playback alone when not muted', () => {
+    const audio = setup()
+    audio.play('...')
+    cutOnMute(audio, false)
+    expect(contexts[0]!.oscillators.filter((osc) => osc.stoppedAt.includes(1.5))).toHaveLength(0)
   })
 })

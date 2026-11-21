@@ -4,7 +4,8 @@ import type { MorseInput } from '../input/morse-input'
 /**
  * Connects a Morse input to the window's keyboard and returns its buffer.
  * A layout effect, so keys work from the first paint: a passive effect runs
- * after it, and a key pressed in between is lost.
+ * after it, and a key pressed in between is lost. It only attaches and detaches
+ * the listener; whoever created the input disposes it.
  */
 export function useMorseKeyboard(input: MorseInput): string {
   useLayoutEffect(() => {
@@ -14,7 +15,6 @@ export function useMorseKeyboard(input: MorseInput): string {
     window.addEventListener('keydown', onKeyDown)
     return () => {
       window.removeEventListener('keydown', onKeyDown)
-      input.dispose()
     }
   }, [input])
   return useSyncExternalStore(input.subscribe, input.getBuffer, input.getBuffer)

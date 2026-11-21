@@ -9,6 +9,7 @@ test-results
 playwright-report
 
 # Test files & artifacts (kept out of the repo per request)
+graphify-out/
 tests/e2e/
 playwright.config.ts
 .github/

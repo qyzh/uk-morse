@@ -1,53 +1,23 @@
 import { useEffect, useState } from 'react'
-import type { ReactElement } from 'react'
-import { Home } from './components/Home'
-import { Trainer } from './components/Trainer'
-import { Dictionary } from './components/Dictionary'
-import { Encoder } from './components/Encoder'
-import { Practice } from './components/Practice'
-import { SettingsPanel } from './components/SettingsPanel'
 import { cx } from './components/cx'
-import {
-  BookIcon,
-  GearIcon,
-  MoonIcon,
-  RadioIcon,
-  SunIcon,
-  TargetIcon,
-  TypeIcon,
-  VolumeIcon,
-  VolumeOffIcon,
-} from './components/icons'
-import type { IconProps } from './components/icons'
+import { MoonIcon, SunIcon, VolumeIcon, VolumeOffIcon } from './components/icons'
+import { AudioProvider } from './hooks/AudioProvider'
+import { useMorseAudio } from './hooks/useMorseAudio'
 import { useSettingsStore } from './store/settingsStore'
+import { NAV_VIEWS, renderView, titleOf, viewOfHash } from './view-router'
+import type { ViewId } from './view-router'
 
-type ViewId = 'home' | 'trainer' | 'dictionary' | 'encoder' | 'practice' | 'settings'
-
-/** Home isn't listed: the wordmark leads there, and it's where the app opens. */
-const VIEWS: Array<{ id: Exclude<ViewId, 'home'>; label: string; title: string; Icon: (props: IconProps) => ReactElement }> = [
-  { id: 'trainer', label: 'Trainer', title: 'Trainer', Icon: RadioIcon },
-  { id: 'dictionary', label: 'Kamus', title: 'Kamus Morse', Icon: BookIcon },
-  { id: 'encoder', label: 'Encoder', title: 'Encoder', Icon: TypeIcon },
-  { id: 'practice', label: 'Latihan', title: 'Latihan', Icon: TargetIcon },
-  { id: 'settings', label: 'Pengaturan', title: 'Pengaturan', Icon: GearIcon },
-]
-
-/** Hash routing (M9 polish): deep links + browser back/forward both work. */
-function readHash(): ViewId {
-  const id = window.location.hash.replace(/^#\/?/, '')
-  return VIEWS.find((v) => v.id === id)?.id ?? 'home'
-}
-
-export default function App() {
+function AppShell() {
+  const audio = useMorseAudio()
   const theme = useSettingsStore((s) => s.theme)
   const muted = useSettingsStore((s) => s.muted)
   const toggleMute = useSettingsStore((s) => s.toggleMute)
   const setTheme = useSettingsStore((s) => s.setTheme)
-  const [view, setView] = useState<ViewId>(readHash)
+  const [view, setView] = useState<ViewId>(() => viewOfHash(window.location.hash))
 
   useEffect(() => {
     if (!window.location.hash) window.history.replaceState(null, '', '#/')
-    const onHashChange = () => setView(readHash())
+    const onHashChange = () => setView(viewOfHash(window.location.hash))
     window.addEventListener('hashchange', onHashChange)
     return () => window.removeEventListener('hashchange', onHashChange)
   }, [])
@@ -60,9 +30,10 @@ export default function App() {
   }, [theme])
 
   useEffect(() => {
-    const meta = VIEWS.find((v) => v.id === view)
-    document.title = meta ? `${meta.title} — morse_trainer` : 'morse_trainer'
+    document.title = titleOf(view)
   }, [view])
+
+  useEffect(() => () => audio.stop(), [view, audio])
 
   return (
     <div className="min-h-dvh overflow-x-clip font-sans text-ink">
@@ -91,7 +62,7 @@ export default function App() {
             aria-label="Navigasi utama"
             className="ml-auto hidden divide-x divide-ink border border-ink pointer-fine:md:flex"
           >
-            {VIEWS.map((v) => {
+            {NAV_VIEWS.map((v) => {
               const active = v.id === view
               return (
                 <a
@@ -133,17 +104,7 @@ export default function App() {
 
       <main id="konten" tabIndex={-1} className="w-full flex-1 px-4 py-8 pb-28 outline-none md:px-8 md:py-12 pointer-fine:md:pb-20 pointer-coarse:md:pb-28">
         <div key={view} className="view-in">
-          {view === 'home' && <Home />}
-          {view === 'trainer' && (
-            <div className="space-y-12">
-              <Trainer />
-              <Dictionary />
-            </div>
-          )}
-          {view === 'dictionary' && <Dictionary standalone />}
-          {view === 'encoder' && <Encoder />}
-          {view === 'practice' && <Practice />}
-          {view === 'settings' && <SettingsPanel />}
+          {renderView(view)}
         </div>
       </main>
 
@@ -152,8 +113,8 @@ export default function App() {
         className="fixed inset-x-0 bottom-0 z-20 border-t border-ink bg-bg/85 pb-[env(safe-area-inset-bottom)] backdrop-blur pointer-fine:md:hidden"
       >
         <div className="grid grid-cols-5 divide-x divide-ink">
-          {VIEWS.map((v) => {
-            const Icon = v.Icon
+          {NAV_VIEWS.map((v) => {
+            const Icon = v.Icon!
             const active = v.id === view
             return (
               <a
@@ -174,6 +135,14 @@ export default function App() {
       </nav>
       </div>
     </div>
+  )
+}
+
+export default function App() {
+  return (
+    <AudioProvider>
+      <AppShell />
+    </AudioProvider>
   )
 }
 

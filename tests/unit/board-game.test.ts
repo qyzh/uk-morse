@@ -1,29 +1,44 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { decodeCode } from '../../src/core/decode'
 import {
   FUSE_SEGMENTS,
   START_LIVES,
+  boardViewOf,
   createBoardGame,
   hasHint,
   levelOf,
   multiplierOf,
   roundMsOf,
 } from '../../src/practice/board-game'
-import type { BoardGame } from '../../src/practice/board-game'
-import { useProgressStore } from '../../src/store/progressStore'
+import type { BoardGame, BoardGameState } from '../../src/practice/board-game'
+import type { BoardProgress } from '../../src/practice/progress'
 
 const HIT_END_MS = 350
 const MISS_END_MS = 1400
 
-const setup = ({ autoCommitMs = 0 } = {}) => {
+const fakeBoardProgress = () => {
+  let best = 0
+  const progress: BoardProgress = {
+    recordBoardScore: (score) => {
+      const isRecord = score > best
+      if (isRecord) best = score
+      return { isRecord }
+    },
+  }
+  return { progress, best: () => best }
+}
+
+const setup = ({ autoCommitMs = 0, progress }: { autoCommitMs?: number; progress?: BoardProgress } = {}) => {
   const play = vi.fn()
   const beep = vi.fn()
+  const fake = fakeBoardProgress()
   const game = createBoardGame({
     autoCommitMs: () => autoCommitMs,
     beep,
     play,
-    progress: useProgressStore.getState(),
+    progress: progress ?? fake.progress,
   })
-  return { game, play, beep }
+  return { game, play, beep, best: fake.best }
 }
 
 const key = (game: BoardGame, code: string) => {
@@ -48,8 +63,6 @@ const miss = (game: BoardGame) => {
 
 beforeEach(() => {
   vi.useFakeTimers()
-  globalThis.localStorage.clear()
-  useProgressStore.getState().reset()
 })
 
 afterEach(() => {
@@ -162,21 +175,22 @@ describe('board game', () => {
   })
 
   it('ends the run with the last life and records the score', () => {
-    const { game } = setup()
+    const { game, best } = setup()
     game.start()
     hit(game)
     for (let i = 0; i < START_LIVES; i++) miss(game)
     expect(game.getState()).toMatchObject({ phase: 'over', outcome: null, lives: 0, score: 10, isRecord: true })
-    expect(useProgressStore.getState().bestBoardScore).toBe(10)
+    expect(best()).toBe(10)
   })
 
   it('does not call a lower score a record', () => {
-    useProgressStore.getState().recordBoardScore(500)
-    const { game } = setup()
+    const shared = fakeBoardProgress()
+    shared.progress.recordBoardScore(500)
+    const { game } = setup({ progress: shared.progress })
     game.start()
     for (let i = 0; i < START_LIVES; i++) miss(game)
     expect(game.getState()).toMatchObject({ phase: 'over', isRecord: false })
-    expect(useProgressStore.getState().bestBoardScore).toBe(500)
+    expect(shared.best()).toBe(500)
   })
 
   it('starts a fresh run after one ends', () => {
@@ -225,5 +239,81 @@ describe('board game', () => {
     const before = game.getState()
     vi.advanceTimersByTime(60_000)
     expect(game.getState()).toBe(before)
+  })
+})
+
+describe('board view', () => {
+  const stateOf = (patch: Partial<BoardGameState> = {}): BoardGameState => ({
+    phase: 'ready',
+    target: null,
+    outcome: null,
+    round: 0,
+    hits: 0,
+    score: 0,
+    points: 0,
+    combo: 0,
+    lives: START_LIVES,
+    fuse: FUSE_SEGMENTS,
+    isRecord: false,
+    ...patch,
+  })
+
+  const a = decodeCode('.-')!
+  const b = decodeCode('-...')!
+  const silent = () => {}
+
+  it('is empty while waiting, with the maxima and no sound', () => {
+    expect(boardViewOf(stateOf(), '', 0, silent)).toMatchObject({
+      route: '',
+      displayChar: null,
+      markedChar: null,
+      score: 0,
+      best: 0,
+      level: 1,
+      multiplier: 1,
+      lives: START_LIVES,
+      maxLives: START_LIVES,
+      fuse: FUSE_SEGMENTS,
+      fuseSegments: FUSE_SEGMENTS,
+      sound: null,
+    })
+  })
+
+  it('lights and decodes the buffer while keying', () => {
+    const view = boardViewOf(stateOf({ phase: 'playing', target: a }), '.-', 0, silent)
+    expect(view.route).toBe('.-')
+    expect(view.displayChar).toBe('A')
+    expect(view.markedChar).toBe('A')
+  })
+
+  it('lights the decided target instead of the buffer', () => {
+    const view = boardViewOf(
+      stateOf({ phase: 'playing', target: b, outcome: 'wrong' }),
+      '.-',
+      0,
+      silent,
+    )
+    expect(view.route).toBe('-...')
+    expect(view.displayChar).toBe('B')
+  })
+
+  it('marks the target only while hints last', () => {
+    const shown = boardViewOf(stateOf({ phase: 'playing', target: a, hits: 0 }), '', 0, silent)
+    const hidden = boardViewOf(stateOf({ phase: 'playing', target: a, hits: 16 }), '', 0, silent)
+    expect(shown.markedChar).toBe('A')
+    expect(hidden.markedChar).toBeNull()
+  })
+
+  it('shows the better of the stored and current score', () => {
+    expect(boardViewOf(stateOf({ score: 30 }), '', 10, silent).best).toBe(30)
+    expect(boardViewOf(stateOf({ score: 10 }), '', 30, silent).best).toBe(30)
+  })
+
+  it('sounds only a live target', () => {
+    const play = vi.fn()
+    expect(boardViewOf(stateOf({ phase: 'ready' }), '', 0, play).sound).toBeNull()
+    const view = boardViewOf(stateOf({ phase: 'playing', target: a }), '', 0, play)
+    view.sound!()
+    expect(play).toHaveBeenCalledWith('.-')
   })
 })

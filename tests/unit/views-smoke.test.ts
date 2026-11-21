@@ -5,6 +5,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { createElement } from 'react'
+import type { ComponentType, ReactElement } from 'react'
 import { renderToString } from 'react-dom/server'
 import App from '../../src/App'
 import { Home } from '../../src/components/Home'
@@ -13,6 +14,7 @@ import { Dictionary } from '../../src/components/Dictionary'
 import { Encoder } from '../../src/components/Encoder'
 import { Practice } from '../../src/components/Practice'
 import { SettingsPanel } from '../../src/components/SettingsPanel'
+import { AudioProvider } from '../../src/hooks/AudioProvider'
 
 // App reads window.location.hash during render (hash routing).
 if (typeof globalThis.window !== 'undefined' && !('location' in globalThis.window)) {
@@ -23,21 +25,24 @@ if (typeof globalThis.window !== 'undefined' && !('location' in globalThis.windo
   })
 }
 
-const cases: Array<[string, () => unknown, string]> = [
-  ['App', App, 'morse_trainer'],
-  ['Home', Home, 'Mulai main'],
-  ['Trainer', Trainer, 'simbol aktif'],
-  ['Dictionary', Dictionary, 'entri'],
-  ['Encoder', Encoder, 'Putar morse'],
-  ['Practice', Practice, 'Encode'],
-  ['SettingsPanel', SettingsPanel, 'Kecepatan (WPM)'],
+/** Views read the app's audio context; App already supplies its own. */
+const withAudio = (View: ComponentType): ReactElement =>
+  createElement(AudioProvider, null, createElement(View))
+
+const cases: Array<[string, () => ReactElement, string]> = [
+  ['App', () => createElement(App), 'morse_trainer'],
+  ['Home', () => withAudio(Home), 'Mulai main'],
+  ['Trainer', () => withAudio(Trainer), 'simbol aktif'],
+  ['Dictionary', () => withAudio(Dictionary), 'entri'],
+  ['Encoder', () => withAudio(Encoder), 'Putar morse'],
+  ['Practice', () => withAudio(Practice), 'Encode'],
+  ['SettingsPanel', () => withAudio(SettingsPanel), 'Kecepatan (WPM)'],
 ]
 
 describe('view render smoke', () => {
-  for (const [name, Component, expected] of cases) {
+  for (const [name, render, expected] of cases) {
     it(`${name} renders`, () => {
-      const html = renderToString(createElement(Component as () => unknown))
-      expect(html).toContain(expected)
+      expect(renderToString(render())).toContain(expected)
     })
   }
 })

@@ -1,8 +1,7 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
-import { decodeCode } from '../core/decode'
 import { useMorseAudio } from '../hooks/useMorseAudio'
 import { useMorseKeyboard } from '../hooks/useMorseKeyboard'
-import { createBoardGame, hasHint, levelOf, multiplierOf } from '../practice/board-game'
+import { boardViewOf, createBoardGame } from '../practice/board-game'
 import type { BoardGameState } from '../practice/board-game'
 import { useProgressStore } from '../store/progressStore'
 import { useSettingsStore } from '../store/settingsStore'
@@ -38,12 +37,12 @@ export function Home() {
   const state = useSyncExternalStore(game.subscribe, game.getState, game.getState)
   const buffer = useMorseKeyboard(game.input)
   const best = useProgressStore((s) => s.bestBoardScore)
+  const view = boardViewOf(state, buffer, best, play)
 
   useEffect(() => game.dispose, [game])
 
-  const { phase, target, outcome, score, combo, lives, fuse } = state
+  const { phase, target } = state
   const playing = phase === 'playing'
-  const level = levelOf(state.hits)
   const liveTarget = playing ? target : null
   const feedback = feedbackOf(state)
 
@@ -52,22 +51,10 @@ export function Home() {
       aria-label="Permainan papan Morse"
       className="mx-auto w-full min-w-64 max-w-[calc((100dvh-19rem)*0.78)] border-2 border-ink md:max-w-[calc((100dvh-15rem)*0.78)]"
     >
-      <MorseBoard
-        className="p-3"
-        route={outcome === null ? buffer : (target?.morse ?? '')}
-        displayChar={liveTarget?.char ?? (buffer ? (decodeCode(buffer)?.char ?? null) : null)}
-        markedChar={liveTarget && hasHint(level) ? liveTarget.char : null}
-        score={score}
-        best={Math.max(best, score)}
-        level={level}
-        multiplier={multiplierOf(combo)}
-        lives={lives}
-        fuse={fuse}
-        onSound={liveTarget ? () => play(liveTarget.morse) : undefined}
-      />
+      <MorseBoard className="p-3" view={view} />
 
       <p aria-live="polite" className="sr-only">
-        {liveTarget ? `Target: ${liveTarget.char}, level ${level}, skor ${score}, nyawa ${lives}` : ''}
+        {liveTarget ? `Target: ${liveTarget.char}, level ${view.level}, skor ${view.score}, nyawa ${view.lives}` : ''}
       </p>
 
       <div

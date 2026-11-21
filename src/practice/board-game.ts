@@ -5,11 +5,13 @@
  * a life at once. Between runs the board is free to key on. Views only render
  * this state; keying goes through `input`.
  */
+import { decodeCode } from '../core/decode'
 import { LETTERS, pickTarget } from '../core/drills'
 import type { MorseEntry } from '../core/morse-data'
 import { createMorseInput } from '../input/morse-input'
-import type { MorseInput, MorseInputGate } from '../input/morse-input'
-import type { ProgressState } from '../store/progressStore'
+import type { MorseInput } from '../input/morse-input'
+import { createSessionRuntime } from './session-runtime'
+import type { BoardProgress } from './progress'
 
 export const START_LIVES = 3
 export const FUSE_SEGMENTS = 12
@@ -54,7 +56,7 @@ export type BoardGameOptions = {
   beep: (kind: 'dit' | 'dah') => void
   /** Sounds a target's code after a miss. */
   play: (morse: string) => void
-  progress: Pick<ProgressState, 'recordBoardScore'>
+  progress: BoardProgress
 }
 
 export type BoardGame = {
@@ -83,46 +85,86 @@ const poolOf = (level: number): readonly MorseEntry[] => {
   return LETTERS.filter((entry) => entry.morse.length <= level + 1)
 }
 
+/** Everything MorseBoard draws, derived from a run and its view-side inputs. */
+export type BoardView = {
+  /** The code to light, element by element from the antenna. */
+  route: string
+  displayChar: string | null
+  /** A target to mark on the tree, when the level gives that hint. */
+  markedChar: string | null
+  score: number
+  best: number
+  level: number
+  multiplier: number
+  lives: number
+  maxLives: number
+  fuse: number
+  fuseSegments: number
+  /** Sounds the target. Null when there is no live target. */
+  sound: (() => void) | null
+}
+
+/** The run-to-board mapping, testable without React or SVG. */
+export function boardViewOf(
+  state: BoardGameState,
+  buffer: string,
+  best: number,
+  play: (morse: string) => void,
+): BoardView {
+  const { phase, target, outcome, score, combo, lives, fuse, hits } = state
+  const playing = phase === 'playing'
+  const level = levelOf(hits)
+  const liveTarget = playing ? target : null
+  return {
+    route: outcome === null ? buffer : (target?.morse ?? ''),
+    displayChar: liveTarget?.char ?? (buffer ? (decodeCode(buffer)?.char ?? null) : null),
+    markedChar: liveTarget && hasHint(level) ? liveTarget.char : null,
+    score,
+    best: Math.max(best, score),
+    level,
+    multiplier: multiplierOf(combo),
+    lives,
+    maxLives: START_LIVES,
+    fuse,
+    fuseSegments: FUSE_SEGMENTS,
+    sound: liveTarget ? () => play(liveTarget.morse) : null,
+  }
+}
+
 export function createBoardGame(options: BoardGameOptions): BoardGame {
   const { beep, play, progress } = options
 
-  let state: BoardGameState = {
-    phase: 'ready',
-    target: null,
-    outcome: null,
-    round: 0,
-    hits: 0,
-    score: 0,
-    points: 0,
-    combo: 0,
-    lives: START_LIVES,
-    fuse: FUSE_SEGMENTS,
-    isRecord: false,
-  }
-  let fuseTimer: ReturnType<typeof setInterval> | undefined
-  let roundEnd: ReturnType<typeof setTimeout> | undefined
-  const listeners = new Set<() => void>()
-
   const input = createMorseInput({
-    autoCommitMs: () => (state.phase === 'playing' ? 0 : options.autoCommitMs()),
+    autoCommitMs: () => (runtime.getState().phase === 'playing' ? 0 : options.autoCommitMs()),
     onElement: beep,
     onWordGap: () => start(),
   })
 
-  const gate = (): MorseInputGate =>
-    state.phase === 'playing' && state.outcome !== null ? 'held' : 'open'
+  const runtime = createSessionRuntime<BoardGameState>({
+    initialState: {
+      phase: 'ready',
+      target: null,
+      outcome: null,
+      round: 0,
+      hits: 0,
+      score: 0,
+      points: 0,
+      combo: 0,
+      lives: START_LIVES,
+      fuse: FUSE_SEGMENTS,
+      isRecord: false,
+    },
+    input,
+    gate: (state) => (state.phase === 'playing' && state.outcome !== null ? 'held' : 'open'),
+  })
 
-  const update = (patch: Partial<BoardGameState>) => {
-    state = { ...state, ...patch }
-    input.setGate(gate())
-    for (const listener of listeners) listener()
-  }
+  const { getState, subscribe, update, setAfter, setEvery, clearEvery, dispose } = runtime
 
   const nextRound = (patch: Partial<BoardGameState> = {}) => {
-    clearInterval(fuseTimer)
+    const state = getState()
     const next = { ...state, ...patch }
     const level = levelOf(next.hits)
-    fuseTimer = setInterval(burnFuse, roundMsOf(level) / FUSE_SEGMENTS)
+    setEvery(roundMsOf(level) / FUSE_SEGMENTS, burnFuse)
     update({
       ...patch,
       target: pickTarget(poolOf(level), state.target ?? undefined),
@@ -133,37 +175,40 @@ export function createBoardGame(options: BoardGameOptions): BoardGame {
   }
 
   const endRound = () => {
-    if (state.lives > 0) {
+    if (getState().lives > 0) {
       nextRound()
       return
     }
-    const { isRecord } = progress.recordBoardScore(state.score)
+    const { isRecord } = progress.recordBoardScore(getState().score)
     update({ phase: 'over', outcome: null, isRecord })
   }
 
   const hit = () => {
-    clearInterval(fuseTimer)
-    const level = levelOf(state.hits)
-    const points = 10 * level * multiplierOf(state.combo)
-    roundEnd = setTimeout(endRound, HIT_END_MS)
+    clearEvery()
+    const { hits, combo, score } = getState()
+    const level = levelOf(hits)
+    const points = 10 * level * multiplierOf(combo)
+    setAfter(HIT_END_MS, endRound)
     update({
       outcome: 'hit',
-      hits: state.hits + 1,
-      score: state.score + points,
+      hits: hits + 1,
+      score: score + points,
       points,
-      combo: state.combo + 1,
+      combo: combo + 1,
     })
   }
 
   const miss = (outcome: 'wrong' | 'timeout') => {
-    clearInterval(fuseTimer)
-    roundEnd = setTimeout(endRound, MISS_END_MS)
-    update({ outcome, combo: 0, lives: state.lives - 1 })
-    play(state.target!.morse)
+    clearEvery()
+    setAfter(MISS_END_MS, endRound)
+    const { lives, target } = getState()
+    update({ outcome, combo: 0, lives: lives - 1 })
+    play(target!.morse)
   }
 
   const burnFuse = () => {
-    if (state.fuse > 1) update({ fuse: state.fuse - 1 })
+    const { fuse } = getState()
+    if (fuse > 1) update({ fuse: fuse - 1 })
     else {
       update({ fuse: 0 })
       miss('timeout')
@@ -172,6 +217,7 @@ export function createBoardGame(options: BoardGameOptions): BoardGame {
 
   input.subscribe(() => {
     const buffer = input.getBuffer()
+    const state = getState()
     if (state.phase !== 'playing' || state.outcome !== null || buffer === '') return
     const code = state.target!.morse
     if (buffer === code) hit()
@@ -179,7 +225,7 @@ export function createBoardGame(options: BoardGameOptions): BoardGame {
   })
 
   const start = () => {
-    if (state.phase === 'playing') return
+    if (getState().phase === 'playing') return
     input.reset()
     nextRound({
       phase: 'playing',
@@ -194,16 +240,9 @@ export function createBoardGame(options: BoardGameOptions): BoardGame {
 
   return {
     input,
-    getState: () => state,
-    subscribe(listener) {
-      listeners.add(listener)
-      return () => listeners.delete(listener)
-    },
+    getState,
+    subscribe,
     start,
-    dispose() {
-      clearInterval(fuseTimer)
-      clearTimeout(roundEnd)
-      input.dispose()
-    },
+    dispose,
   }
 }

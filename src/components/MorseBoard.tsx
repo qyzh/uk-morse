@@ -1,7 +1,7 @@
 import { ANTENNA, BOARD_HEIGHT, BOARD_NODES, BOARD_WIDTH } from '../core/morse-board'
 import type { BoardNode } from '../core/morse-board'
 import { DOT_COLUMNS, dotRows } from '../core/dot-font'
-import { FUSE_SEGMENTS, START_LIVES } from '../practice/board-game'
+import type { BoardView } from '../practice/board-game'
 import { cx } from './cx'
 
 const DOT_PITCH = 12
@@ -13,7 +13,6 @@ const SCORE_Y = 472
 const FUSE_X = 32
 const FUSE_Y = 522
 const FUSE_GAP = 5
-const FUSE_WIDTH = (BOARD_WIDTH - 2 * FUSE_X - (FUSE_SEGMENTS - 1) * FUSE_GAP) / FUSE_SEGMENTS
 
 function Lamp({ node, className }: { node: BoardNode; className?: string }) {
   if (node.shape === 'dit') {
@@ -106,37 +105,12 @@ function Speaker() {
 
 /**
  * The board as a chart printed on a form: wires and lamps for the Morse tree.
- * Lamps along `route` stamp green for a dit and red for a dah, in the shapes
+ * Lamps along the route stamp green for a dit and red for a dah, in the shapes
  * the code is drawn in, so shape still tells them apart without color.
  */
-export function MorseBoard({
-  route,
-  displayChar,
-  markedChar,
-  score,
-  best,
-  level,
-  multiplier,
-  lives,
-  fuse,
-  onSound,
-  className,
-}: {
-  /** The code to light, element by element from the antenna. */
-  route: string
-  displayChar: string | null
-  /** A target to mark on the tree, when the level gives that hint. */
-  markedChar: string | null
-  score: number
-  best: number
-  level: number
-  multiplier: number
-  lives: number
-  fuse: number
-  /** Sounds the target. Leaves the speaker inert when absent. */
-  onSound?: (() => void) | undefined
-  className?: string
-}) {
+export function MorseBoard({ view, className }: { view: BoardView; className?: string }) {
+  const fuseWidth =
+    (BOARD_WIDTH - 2 * FUSE_X - (view.fuseSegments - 1) * FUSE_GAP) / view.fuseSegments
   return (
     <div className={cx('relative', className)}>
       <svg
@@ -164,45 +138,45 @@ export function MorseBoard({
           <Node
             key={node.char}
             node={node}
-            lit={route.startsWith(node.morse)}
-            marked={node.char === markedChar}
+            lit={view.route.startsWith(node.morse)}
+            marked={node.char === view.markedChar}
           />
         ))}
 
-        <DotDisplay char={displayChar} />
+        <DotDisplay char={view.displayChar} />
         <g>
-          {Array.from({ length: START_LIVES }, (_, i) => (
+          {Array.from({ length: view.maxLives }, (_, i) => (
             <circle
               key={i}
               cx={DOT_X + i * 24}
               cy={LIFE_Y}
               r={7}
-              className={i < lives ? 'fill-led-target stroke-led-target stroke-2' : 'fill-bg stroke-ink stroke-2'}
+              className={i < view.lives ? 'fill-led-target stroke-led-target stroke-2' : 'fill-bg stroke-ink stroke-2'}
             />
           ))}
         </g>
         <g className="fill-ink text-[15px]">
-          <text x={FUSE_X} y={SCORE_Y}>skor {score}</text>
-          <text x={FUSE_X} y={SCORE_Y + 18}>terbaik {best}</text>
-          <text x={FUSE_X} y={SCORE_Y + 36}>level {level} x{multiplier}</text>
+          <text x={FUSE_X} y={SCORE_Y}>skor {view.score}</text>
+          <text x={FUSE_X} y={SCORE_Y + 18}>terbaik {view.best}</text>
+          <text x={FUSE_X} y={SCORE_Y + 36}>level {view.level} x{view.multiplier}</text>
         </g>
         <g>
-          {Array.from({ length: FUSE_SEGMENTS }, (_, i) => (
+          {Array.from({ length: view.fuseSegments }, (_, i) => (
             <rect
               key={i}
-              x={FUSE_X + i * (FUSE_WIDTH + FUSE_GAP)}
+              x={FUSE_X + i * (fuseWidth + FUSE_GAP)}
               y={FUSE_Y}
-              width={FUSE_WIDTH}
+              width={fuseWidth}
               height={7}
-              className={i < fuse ? 'fill-led-target' : 'fill-board-off'}
+              className={i < view.fuse ? 'fill-led-target' : 'fill-board-off'}
             />
           ))}
         </g>
       </svg>
-      {onSound && (
+      {view.sound && (
         <button
           type="button"
-          onClick={onSound}
+          onClick={view.sound}
           aria-label="Putar bunyi target"
           className="absolute size-14 -translate-x-1/2 -translate-y-1/2"
           style={{

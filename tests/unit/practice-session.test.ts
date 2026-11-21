@@ -1,21 +1,50 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPracticeSession } from '../../src/practice/practice-session'
 import type { PracticeSession } from '../../src/practice/practice-session'
-import { useProgressStore } from '../../src/store/progressStore'
+import type { PracticeProgress, SpeedDuration } from '../../src/practice/progress'
 
 const ROUND_END_MS = 450
 const UNKNOWN_CODE = '......'
 
-const setup = ({ autoCommitMs = 0 } = {}) => {
+const fakeProgress = () => {
+  const state = {
+    drillsCorrect: 0,
+    drillsTotal: 0,
+    bestStreak: 0,
+    bestWpm: { 30: 0, 60: 0, 120: 0 } as Record<SpeedDuration, number>,
+  }
+  const progress: PracticeProgress = {
+    recordDrill: (correct) => {
+      state.drillsTotal += 1
+      state.drillsCorrect += correct ? 1 : 0
+    },
+    recordStreak: (streak) => {
+      state.bestStreak = Math.max(state.bestStreak, streak)
+    },
+    recordSpeedTest: (durationS, wpm) => {
+      const previousBest = state.bestWpm[durationS]
+      const isRecord = wpm > previousBest
+      if (isRecord) state.bestWpm[durationS] = wpm
+      return { wpm, best: Math.max(wpm, previousBest), isRecord }
+    },
+  }
+  return { progress, state }
+}
+
+const setup = ({
+  autoCommitMs = 0,
+  progress,
+}: { autoCommitMs?: number; progress?: PracticeProgress } = {}) => {
   const stopAudio = vi.fn()
   const beep = vi.fn()
+  const fake = fakeProgress()
   const session = createPracticeSession({
     autoCommitMs: () => autoCommitMs,
     beep,
     stopAudio,
-    progress: useProgressStore.getState(),
+    progress: progress ?? fake.progress,
   })
-  return { session, stopAudio, beep }
+  return { session, stopAudio, beep, recorded: fake.state }
 }
 
 const keyCode = (session: PracticeSession, code: string) => {
@@ -58,8 +87,6 @@ const keyPress = (key: string) => ({
 
 beforeEach(() => {
   vi.useFakeTimers()
-  globalThis.localStorage.clear()
-  useProgressStore.getState().reset()
 })
 
 afterEach(() => {
@@ -268,14 +295,14 @@ describe('switching mode', () => {
   })
 
   it('cancels a running speed test with no result', () => {
-    const { session } = setup()
+    const { session, recorded } = setup()
     session.setMode('speed')
     session.startSpeedTest()
     answerSpeed(session, true)
     session.setMode('encode')
     expect(session.getState().speed).toMatchObject({ phase: 'ready', result: null })
     expect(session.getState().speed.remainingS).toBe(30)
-    expect(useProgressStore.getState().bestWpm[30]).toBe(0)
+    expect(recorded.bestWpm[30]).toBe(0)
     vi.advanceTimersByTime(60_000)
     expect(session.getState().speed.phase).toBe('ready')
   })
@@ -424,7 +451,7 @@ describe('speed test', () => {
 
 describe('progress', () => {
   it('tallies both drills, but not the speed test', () => {
-    const { session } = setup()
+    const { session, recorded } = setup()
     answerEncode(session, true)
     vi.advanceTimersByTime(ROUND_END_MS)
     session.setMode('decode')
@@ -433,21 +460,24 @@ describe('progress', () => {
     session.setMode('speed')
     session.startSpeedTest()
     answerSpeed(session, true)
-    const { drillsCorrect, drillsTotal } = useProgressStore.getState()
-    expect({ drillsCorrect, drillsTotal }).toEqual({ drillsCorrect: 1, drillsTotal: 2 })
+    expect({ drillsCorrect: recorded.drillsCorrect, drillsTotal: recorded.drillsTotal }).toEqual({
+      drillsCorrect: 1,
+      drillsTotal: 2,
+    })
   })
 
   it('outlives the session', () => {
-    const first = setup().session
+    const shared = fakeProgress()
+    const first = setup({ progress: shared.progress }).session
     answerEncode(first, true)
     first.dispose()
-    const second = setup().session
+    const second = setup({ progress: shared.progress }).session
     expect(second.getState().encode.total).toBe(0)
-    expect(useProgressStore.getState().drillsTotal).toBe(1)
+    expect(shared.state.drillsTotal).toBe(1)
   })
 
   it('counts a streak across both drills', () => {
-    const { session } = setup()
+    const { session, recorded } = setup()
     answerEncode(session, true)
     vi.advanceTimersByTime(ROUND_END_MS)
     session.setMode('decode')
@@ -455,31 +485,32 @@ describe('progress', () => {
     vi.advanceTimersByTime(ROUND_END_MS)
     session.setMode('encode')
     answerEncode(session, true)
-    expect(useProgressStore.getState().bestStreak).toBe(3)
+    expect(recorded.bestStreak).toBe(3)
   })
 
   it('restarts the streak after a wrong answer but keeps the best', () => {
-    const { session } = setup()
+    const { session, recorded } = setup()
     for (const correct of [true, true, false, true]) {
       answerEncode(session, correct)
       vi.advanceTimersByTime(ROUND_END_MS)
     }
-    expect(useProgressStore.getState().bestStreak).toBe(2)
+    expect(recorded.bestStreak).toBe(2)
   })
 
   it('marks a new best WPM', () => {
-    const { session } = setup()
+    const { session, recorded } = setup()
     session.setMode('speed')
     session.startSpeedTest()
     for (let i = 0; i < 5; i++) answerSpeed(session, true)
     vi.advanceTimersByTime(30_000)
     expect(session.getState().speed.result).toEqual({ wpm: 2, best: 2, isRecord: true })
-    expect(useProgressStore.getState().bestWpm[30]).toBe(2)
+    expect(recorded.bestWpm[30]).toBe(2)
   })
 
   it('does not mark a tie as a record', () => {
-    useProgressStore.getState().recordSpeedTest(30, 5)
-    const { session } = setup()
+    const shared = fakeProgress()
+    shared.progress.recordSpeedTest(30, 2)
+    const { session } = setup({ progress: shared.progress })
     session.setMode('speed')
     session.startSpeedTest()
     for (let i = 0; i < 5; i++) answerSpeed(session, true)
@@ -488,13 +519,13 @@ describe('progress', () => {
   })
 
   it('keeps a best per duration', () => {
-    const { session } = setup()
+    const { session, recorded } = setup()
     session.setMode('speed')
     session.setSpeedDuration(60)
     session.startSpeedTest()
     for (let i = 0; i < 10; i++) answerSpeed(session, true)
     vi.advanceTimersByTime(60_000)
-    expect(useProgressStore.getState().bestWpm).toEqual({ 30: 0, 60: 2, 120: 0 })
+    expect(recorded.bestWpm).toEqual({ 30: 0, 60: 2, 120: 0 })
   })
 })
 
@@ -526,12 +557,12 @@ describe('state', () => {
     vi.advanceTimersByTime(ROUND_END_MS)
     expect(stopAudio).not.toHaveBeenCalled()
 
-    const speed = setup().session
+    const { session: speed, recorded } = setup()
     speed.setMode('speed')
     speed.startSpeedTest()
     speed.dispose()
     vi.advanceTimersByTime(30_000)
     expect(speed.getState().speed.phase).toBe('running')
-    expect(useProgressStore.getState().bestWpm[30]).toBe(0)
+    expect(recorded.bestWpm[30]).toBe(0)
   })
 })
